@@ -634,6 +634,15 @@ function formatAgendaResponse(format, agendaItems) {
 
 // Tagesordnung für eine bestimmte Woche abrufen und speichern
 async function fetchAndStoreAgenda(year, week) {
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentWeek = getWeekNumber(currentDate);
+
+    // Überprüfen, ob die angeforderte Woche in der Zukunft liegt
+    if (year > currentYear || (year === currentYear && week > currentWeek)) {
+        return;
+    }
+
     const html = await fetchAgenda(year, week);
     const newAgendaItems = await parseAgenda(html);
     await data.put(`agenda-${year}-${week}`, JSON.stringify(newAgendaItems));
