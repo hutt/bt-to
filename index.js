@@ -180,7 +180,7 @@ async function serveDocumentation() {
 <main>
     <section id="hintergrund">
         <h2>Hintergrund</h2>
-        <p>Der Deutsche Bundestag stellt seine Tagesordnung <a href="https://www.bundestag.de/tagesordnung">online zur Verfügung</a> &ndash; nur leider in keinem maschinenlesbaren Format. Da in Sitzungswochen mindestens 736 Abgeordnetenbüros händisch die Tagesordnungspunkte in ihren Kalendern aktualisieren müssen, war es Zeit für eine Alternative.</p>
+        <p>Der Deutsche Bundestag stellt seine Tagesordnung <a href="https://www.bundestag.de/tagesordnung">online zur Verfügung</a> &ndash; nur leider in keinem maschinenlesbaren Format. Da in Sitzungswochen mindestens 734 Abgeordnetenbüros händisch die Tagesordnungspunkte in ihren Kalendern aktualisieren müssen, war es Zeit für eine Alternative.</p>
         <p>Aus diesem Grund stelle ich (ein einfacher MdB-Mitarbeiter) mithilfe eines Cloudflare-Workers diese API bereit, die die aktuelle Tagesordnung von der Website des Deutschen Bundestags scraped und in einer Key-Value-Datenbank zwischenspeichert.</p>
         <p>Die Tagesordnungspunkte für die laufenden Sitzungswoche werden alle 15min aktualisiert. Außerdem können die <a href="#vorhandene-daten">Tagesordnungen vergangener Sitzungswochen oder gleich ganzer Jahre</a> abgefragt oder heruntergeladen werden.</p>
         <p>Falls etwas nicht funktioniert, wie es soll: Nicht wundern, das Projekt ist in der <strong>Beta-Phase</strong>. Ich freue mich über einen freundlichen Hinweis (<a href="#quellcode">*klick*</a>).</p>
