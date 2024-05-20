@@ -139,7 +139,7 @@ async function serveDocumentation() {
         footer {
             text-align: center;
             margin-top: 20px;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
             padding: 10px;
             font-size: 0.8em;
             color: #777;
@@ -157,6 +157,9 @@ async function serveDocumentation() {
             main {
                 margin: 1rem;
                 padding: 15px;
+            }
+            footer {
+                font-size: 0.6em;
             }
         }
     </style>
@@ -342,7 +345,7 @@ Drucksache 20/10054";https://bundestag.de/dokumente/textarchiv/2024/kw03-de-zwei
         <h2>Vorhandene Daten</h2>
         <p>Hier sind die mit dieser API abrufbaren Daten inkl. Links zum direkten Download aufgelistet:</p>
         <ul id="data-list" class="data">
-            <!-- Daten werden hier nachgeladen -->
+            <li>Daten werden geladen...</li>
         </ul>
     </section>
 
@@ -355,7 +358,8 @@ Drucksache 20/10054";https://bundestag.de/dokumente/textarchiv/2024/kw03-de-zwei
 
     <section id="unterstuetzen">
         <h2>Unterstützen</h2>
-        <p>In solche Projekte fließt eine Menge Zeit und meistens auch ein bisschen Geld für Hosting oder andere anfallende Kosten. Wenn du die (Weiter-)Entwicklung und den Betrieb unterstützen möchtest (worüber ich mich sehr freuen würde), kannst du mir über den Link unten einen (digitalen) Kaffee kaufen. Vielen Dank!</p>
+        <p>In solche Projekte fließt eine Menge Zeit und meistens auch ein bisschen Geld fürs Hosting. Wenn Sie die (Weiter-)Entwicklung und den Betrieb unterstützen wollen (worüber ich mich sehr freue), können Sie mir über den Link unten einen (digitalen) Kaffee kaufen.</p>
+        <p>Vielen Dank!</p>
         <p><a class="buy-me-a-coffee" href="https://www.buymeacoffee.com/jannishutt" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a></p>
     </section>
 </main>
@@ -489,23 +493,45 @@ async function updateAgenda() {
     const year = new Date().getFullYear();
     const week = getWeekNumber(new Date());
     const html = await fetchAgenda(year, week);
-    const agendaItems = parseAgenda(html);
+    const newAgendaItems = await parseAgenda(html);
 
     // Bereits existierende Tagesordnungspunkte aus KV Storage holen
-    const currentItemsPromises = agendaItems.map(item => data.get(item.uid));
-    const currentItems = await Promise.all(currentItemsPromises).then(values => values.map(value => JSON.parse(value)));
+    const currentItemsRaw = await data.get(`agenda-${year}-${week}`, { type: "json" });
 
-    // KV Storage updaten, wenn 
-    const updatedItems = currentItems.map((currentItem, index) => {
-        const newItem = agendaItems[index];
-        return (newItem.title === currentItem.title && newItem.content === currentItem.content)
-            ? currentItem // Keine Änderungen: Alte Version behalten.
-            : { uid: newItem.uid, data: JSON.stringify(newItem) }; // Neue Version speichern
+    // Überprüfen, ob die Daten vorhanden und gültig sind
+    let currentItemsArray = [];
+    if (currentItemsRaw) {
+        try {
+            if (currentItemsRaw.trim().length > 0) {
+                currentItemsArray = JSON.parse(currentItemsRaw);
+            }
+        } catch (e) {
+            console.error("Failed to parse currentItemsRaw:", e);
+            currentItemsArray = [];
+        }
+    }
+
+    // Neue und aktualisierte Items in KV Storage speichern
+    const updatedItems = newAgendaItems.map(newItem => {
+        const currentItem = currentItemsArray.find(item => item.uid === newItem.uid);
+        if (currentItem) {
+            // Überprüfen, ob es Änderungen gibt
+            if (JSON.stringify(currentItem) !== JSON.stringify(newItem)) {
+                return newItem;
+            } else {
+                return currentItem;
+            }
+        } else {
+            return newItem;
+        }
     });
 
-    const promises = updatedItems.map((item) => (item === currentItem ? Promise.resolve() : data.put(item.uid, item.data)));
-    await Promise.all(promises);
+    // Nur neue oder geänderte Items speichern
+    if (updatedItems.length > 0) {
+        await data.put(`agenda-${year}-${week}`, JSON.stringify(updatedItems));
+    }
 }
+
 
 // Funktionen zum Abrufen oder Abrufen und Speichern der Tagesordnung
 async function getOrFetchAgendaByWeek(year, week) {
