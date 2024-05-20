@@ -1,0 +1,23 @@
+{
+  "private": true,
+  "name": "bt-to",
+  "version": "1.0.0",
+  "description": "Die Bundestags-Tagesordnung – endlich auch maschinenlesbar.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "webpack",
+    "format": "prettier --write '**/*.{js,css,json,md}'"
+  },
+  "author": "Jannis Hutt <github@jh0.eu>",
+  "license": "MIT",
+  "devDependencies": {
+    "prettier": "^1.18.2",
+    "webpack": "^5.24.2",
+    "webpack-cli": "^4.5.0"
+  },
+  "keywords": [],
+  "dependencies": {
+    "cheerio": "^1.0.0-rc.12"
+  }
+}

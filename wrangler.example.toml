@@ -1,0 +1,16 @@
+name = "bt-to"
+main = "./index.js"
+type = "javascript"
+
+kv_namespaces = [
+  { binding = "data", id = "<kv namespace id>" }
+]
+
+account_id = "<cloudflare account id>"
+workers_dev = true
+route = { pattern = "https://api.hutt.io/bt-to/*", zone_name = "hutt.io" }
+zone_id = "<cloudflare zone id>"
+compatibility_date = "2024-05-17"
+
+[env.dev.triggers]
+crons = ["*/15 * * * *"]
