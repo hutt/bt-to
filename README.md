@@ -1,4 +1,4 @@
-# bt-to – Bundestags-Tagesordnungs-API für iCal, JSON, XML & CSV
+# bt-to – Bundestags-Tagesordnung als iCal-Feed (und mehr)
 
 ## Overview
 
@@ -110,10 +110,6 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE.md) fi
 
 - This project uses the [cheerio](https://github.com/cheeriojs/cheerio) library for HTML parsing.
 
-## Contact
+## Buy Me A Coffee!
 
-For questions or support, please contact [Jannis Hutt](mailto:your-email@example.com).
-
----
-
-Feel free to customize this README file further based on your specific needs and the structure of your repository.
+[!["Buy Me A Coffee"](https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png)](https://www.buymeacoffee.com/jannishutt)
