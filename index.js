@@ -742,8 +742,7 @@ function createIcal(agendaItems) {
         'VERSION:2.0',
         'PRODID:-//hutt.io//api.hutt.io/bt-to//',
         'CALSCALE:GREGORIAN',
-        'COLOR:#808080',
-        'X-APPLE-CALENDAR-COLOR:#808080',
+        'X-WR-TIMEZONE:Europe/Berlin',
         foldLine(`X-WR-CALNAME:Tagesordnung Bundestag`),
         foldLine(`X-WR-CALDESC:Dieses iCal-Feed stellt die aktuelle Tagesordnung des Plenums des Deutschen Bundestages zur Verfügung. Es aktualisiert sich alle 15min selbst. Zwar ist der Sitzungsverlauf auch online unter bundestag.de/tagesordnung einsehbar, doch leider werden diese Daten nicht in einem maschinenlesbaren Format zur Verfügung gestellt. Deshalb war es Zeit, das selbst in die Hand zu nehmen. Mehr Informationen über das Projekt: https://api.hutt.io/bt-to/.`),
         foldLine(`DESCRIPTION:Dieses iCal-Feed stellt die aktuelle Tagesordnung des Plenums des Deutschen Bundestages zur Verfügung. Es aktualisiert sich alle 15min selbst. Zwar ist der Sitzungsverlauf auch online unter bundestag.de/tagesordnung einsehbar, doch leider werden diese Daten nicht in einem maschinenlesbaren Format zur Verfügung gestellt. Deshalb war es Zeit, das selbst in die Hand zu nehmen. Mehr Informationen über das Projekt: https://api.hutt.io/bt-to/.`),
@@ -773,7 +772,6 @@ function createIcal(agendaItems) {
         let dtstart = new Date(item.start);
         let dtend = new Date(item.end);
 
-        // Ensure dtend is at least one minute after dtstart
         if (dtend <= dtstart) {
             dtend = new Date(dtstart.getTime() + 60000); // Add one minute
         }
@@ -784,8 +782,8 @@ function createIcal(agendaItems) {
         cal.push('BEGIN:VEVENT');
         cal.push(foldLine(`UID:${item.uid}`));
         cal.push(foldLine(`DTSTAMP:${formatDate(item.dtstamp)}`));
-        cal.push(foldLine(`DTSTART:${formatDate(dtstart.toISOString())}`));
-        cal.push(foldLine(`DTEND:${formatDate(dtend.toISOString())}`));
+        cal.push(foldLine(`DTSTART;TZID=Europe/Berlin:${formatDate(item.start)}`));
+        cal.push(foldLine(`DTEND;TZID=Europe/Berlin:${formatDate(item.end)}`));
         cal.push(foldLine(`SUMMARY:${item.top ? `${item.top}: ${item.thema}` : item.thema}`));
         cal.push(foldLine(`DESCRIPTION:${item.beschreibung.replace(/\n/g, '\\n')}`));
         if (item.url) {
@@ -809,9 +807,9 @@ function createIcal(agendaItems) {
         cal.push('END:VEVENT');
     });
 
-    cal.push('END:VCALENDAR'); // Ensure the END:VCALENDAR line is added
+    cal.push('END:VCALENDAR');
 
-    return cal.join('\r\n');  // Ensure CRLF line endings
+    return cal.join('\r\n');
 }
 
 function createXml(agendaItems) {
