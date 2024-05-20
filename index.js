@@ -419,7 +419,7 @@ Drucksache 20/10054";https://bundestag.de/dokumente/textarchiv/2024/kw03-de-zwei
 // Liste mit gecachten Daten bereitstellen
 async function serveDataList(request) {
     // Cache-Zeit für Daten aus KV Storage
-    const cacheDuration = 10 * 60; //10 min in Sekunden
+    const cacheDuration = 15 * 60; // 15 min in Sekunden
 
     const cache = caches.default;
     const cacheKey = new Request(new URL(request.url).toString());
@@ -434,15 +434,32 @@ async function serveDataList(request) {
     let kvData = {};
     const currentYear = new Date().getFullYear();
 
-    for (let year = currentYear; year >= 2020; year--) { // Daten vor 2020 nicht laden
-        kvData[year] = [];
+    const fetchYearData = async (year) => {
+        let yearData = [];
+        let weekPromises = [];
+
         for (let week = 1; week <= 52; week++) {
-            const dataItem = await data.get(`agenda-${year}-${week}`, { type: "json" });
-            if (dataItem && Object.keys(dataItem).length > 0) {
-                kvData[year].push(week);
-            }
+            weekPromises.push(data.get(`agenda-${year}-${week}`, { type: "json" }).then(dataItem => {
+                if (dataItem && Object.keys(dataItem).length > 0) {
+                    yearData.push(week);
+                }
+            }));
         }
+
+        await Promise.all(weekPromises);
+        return { year, weeks: yearData };
+    };
+
+    let yearPromises = [];
+    for (let year = currentYear; year >= 2020; year--) { // Daten vor 2020 nicht laden
+        yearPromises.push(fetchYearData(year));
     }
+
+    const yearDataArray = await Promise.all(yearPromises);
+
+    yearDataArray.forEach(yearData => {
+        kvData[yearData.year] = yearData.weeks;
+    });
 
     // Geholte Daten cachen
     const response = new Response(JSON.stringify(kvData), {
@@ -531,7 +548,6 @@ async function updateAgenda() {
         await data.put(`agenda-${year}-${week}`, JSON.stringify(updatedItems));
     }
 }
-
 
 // Funktionen zum Abrufen oder Abrufen und Speichern der Tagesordnung
 async function getOrFetchAgendaByWeek(year, week) {
