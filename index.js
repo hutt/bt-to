@@ -55,6 +55,18 @@ async function serveDocumentation() {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bundestag Tagesordnung API</title>
+    <meta name="keywords" content="Bundestag, Parlament, Tagesordnung, Sitzungsverlauf, API, Kalender, iCal, Feed, JSON, XML, CSV, Export, maschinenlesbar, Kalenderabo">
+    <meta name="description" content="Endlich maschinenlesbar und als Kalender-Feed: Die Tagesordnung des Bundestages.">
+    
+    <meta property="og:title" content="Bundestags-TO API">
+    <meta property="og:url" content="http://api.hutt.io/bt-to/">
+    <meta property="og:image" content="">
+    <meta property="og:description" content="Endlich maschinenlesbar und als Kalender-Feed: Die Tagesordnung des Bundestages.">
+    <meta property="og:type" content="website">
+    
+    <meta name="twitter:card" content="summary">
+    <meta property="twitter:title" content="Bundestags-TO API">
+    <meta property="twitter:description" content="Endlich maschinenlesbar und als Kalender-Feed: Die Tagesordnung des Bundestages.">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -80,7 +92,7 @@ async function serveDocumentation() {
             margin-bottom: 0;
         }
         h3 {
-            font-size: 1.3em;
+            font-size: 1.2em;
             font-weight: 400;
             color: #333333;
             margin-top: 1.5rem;
@@ -145,15 +157,6 @@ async function serveDocumentation() {
             color: #777;
         }
         @media (max-width: 800px) {
-            h1 {
-                font-size: 1.4em;
-            }
-            h2 {
-                font-size: 1.2em;
-            }
-            h3 {
-                font-size: 1.1em;
-            }
             main {
                 margin: 1rem;
                 padding: 15px;
@@ -424,13 +427,13 @@ async function serveDataList(request) {
     const cache = caches.default;
     const cacheKey = new Request(new URL(request.url).toString());
 
-    // Try to get cached response
+    // Versuchen, Antwort aus dem Cache zu laden.
     let cachedResponse = await cache.match(cacheKey);
     if (cachedResponse) {
         return cachedResponse;
     }
 
-    // If not in cache, fetch from KV storage
+    // Wenn nicht im Cache, aus dem KV Storage laden.
     let kvData = {};
     const currentYear = new Date().getFullYear();
 
