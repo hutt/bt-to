@@ -82,20 +82,23 @@ async function serveDocumentation() {
             padding: 20px 0;
         }
         h1 {
-            font-size: 1.8em;
+            font-size: 2em;
             margin: 0;
         }
         h2 {
-            font-size: 1.5em;
+            font-size: 1.7em;
             color: #0a4445;
-            margin-top: 2rem;
+            margin-top: 2.5rem;
             margin-bottom: 0;
         }
+        main > section:first-child > h2 {
+            margin-top: 0;
+        }
         h3 {
-            font-size: 1.2em;
+            font-size: 1.5em;
             font-weight: 400;
             color: #333333;
-            margin-top: 1.5rem;
+            margin-top: 1.6rem;
             margin-bottom: 0;
         }
         main {
