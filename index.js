@@ -343,7 +343,7 @@ Drucksache 20/10054";https://bundestag.de/dokumente/textarchiv/2024/kw03-de-zwei
 
     <section id="vorhandene-daten">
         <h2>Vorhandene Daten</h2>
-        <p>Hier sind die mit dieser API abrufbaren Daten inkl. Links zum direkten Download aufgelistet:</p>
+        <p>Hier sind die mit dieser API abrufbaren Daten inkl. Links zum direkten Download aufgelistet. Aktuell sind Abfragen auf Datensätze ab 2020 begrenzt.</p>
         <ul id="data-list" class="data">
             <li>Daten werden geladen...</li>
         </ul>
