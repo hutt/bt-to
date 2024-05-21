@@ -12,6 +12,7 @@ import cheerio from "cheerio";
 // Variablen
 const cacheApiRequests = 30 * 24 * 60 * 60; // API Requests für 30 Tage cachen
 const cacheDataList = 24 * 60 * 60; // DataList für 24h cachen
+const loggingEnabled = true; // Setze auf false, um Logging zu deaktivieren
 
 // Event Listener für eingehende Anfragen und geplante Aufgaben
 addEventListener("fetch", (event) => {
@@ -518,6 +519,7 @@ async function serveAgenda(format, params, request) {
     // Try to fetch from cache
     let cachedResponse = await cache.match(cacheKey);
     if (cachedResponse) {
+        logMessage(`API Response für ${cacheKey} aus dem Cache geladen.`);
         return cachedResponse;
     }
 
@@ -532,6 +534,7 @@ async function serveAgenda(format, params, request) {
 
     // Check if the requested year and week are in the future
     if (year > currentYear || (year == currentYear && week > currentWeek)) {
+        logMessage(`API Response für ${cacheKey} wurde nicht geladen: Der angeforderte Zeitraum liegt in der Zukunft.`);
         return new Response("Keine Daten für zukünftige Wochen", { status: 400 });
     }
 
@@ -561,6 +564,7 @@ async function serveAgenda(format, params, request) {
     // Cache the response
     response.headers.append('Cache-Control', `max-age=${cacheDuration}`);
     await cache.put(cacheKey, response.clone());
+    logMessage(`API-Response für ${cacheKey} gecached.`);
 
     return response;
 }
@@ -572,7 +576,7 @@ async function updateAgenda() {
     const html = await fetchAgenda(year, week);
     const newAgendaItems = await parseAgenda(html);
 
-    // Already existing agenda items from KV storage
+    // Bereits existierende TO aus KV Storage holen
     const currentItemsRaw = await data.get(`agenda-${year}-${week}`, { type: "json" });
 
     // Check if the data is available and valid
@@ -590,7 +594,7 @@ async function updateAgenda() {
         }
     }
 
-    // Identify new and updated items
+    // Neue und aktualisierte Tagesordnungspunkte identifizieren
     const updatedItems = [];
     const currentItemsMap = new Map(currentItemsArray.map(item => [item.uid, item]));
 
@@ -601,13 +605,20 @@ async function updateAgenda() {
         }
     }
 
-    // Save only new or changed items and invalidate the cache
+    // Nur geänderte Tagesordnungspunkte speichern, danach Cache invalidieren
     if (updatedItems.length > 0) {
+        logMessage(`Aktualisierungen der Tagesordnung für KW ${week}/${year} gefunden.`);
+        
         await data.put(`agenda-${year}-${week}`, JSON.stringify(newAgendaItems));
+        logMessage(`Tagesordnung für KW ${week}/${year} in der Key Value Database aktualisiert.`);
+        
         const simulatedRequest = {
             url: `https://api.hutt.io/bt-to/update`
         };
         await invalidateCache(year, week, simulatedRequest);
+        logMessage(`API-Response für KW ${week}/${year} aus dem Cache gelöscht.`);
+    } else {
+        logMessage(`Tagesordnung für KW ${week}/${year} ist auf dem neusten Stand.`);
     }
 }
 
@@ -727,10 +738,12 @@ async function fetchAndStoreAgenda(year, week, request) {
     const existingAgendaItems = await data.get(`agenda-${year}-${week}`, { type: "json" });
 
     await data.put(`agenda-${year}-${week}`, JSON.stringify(newAgendaItems));
+    logMessage(`Tagesordnungen für KW ${week}/${year} in Key Value Datenbank gespeichert.`);
 
     // Invalidate the cache for /bt-to/data-list if new data is added, except for the current week
     if (JSON.stringify(newAgendaItems) !== JSON.stringify(existingAgendaItems) && !(year === currentYear && week === currentWeek)) {
         await invalidateCache(year, week, request);
+        logMessage(`Tagesordnungen für KW ${week}/${year} aus dem Cache gelöscht.`);
     }
 }
 
@@ -778,17 +791,6 @@ async function parseAgenda(html) {
             let endDateTime = new Date(date);
             endDateTime.setHours(endHour, endMinute);
 
-            // Wenn mehrere Tagesordnungspunkte parallel laufen, für jeden eine Dauer von 15 Minuten festlegen
-            const timeDifference = differenceInMinutes(startDateTime, endDateTime);
-            if (timeDifference === 0) {
-                endDateTime = new Date(endDateTime.getTime() + (15 * 60000)); // 15min addieren
-            }
-
-            // Wenn der Endzeitpunkt vor dem Startzeitpunkt liegt, setze das Enddatum auf den nächsten Tag
-            if (endDateTime <= startDateTime) {
-                endDateTime.setDate(endDateTime.getDate() + 1);
-            }
-
             let top = $(startRow).find('td[data-th="TOP"]').text().trim();
             const thema = $(startRow).find('td[data-th="Thema"] a.bt-top-collapser').text().trim();
             const beschreibungElem = $(startRow).find('td[data-th="Thema"] p');
@@ -804,6 +806,19 @@ async function parseAgenda(html) {
                 return /^\d+$/.test(part) ? `TOP ${part}` : part;
             }).join(', ');
 
+            // Wenn mehrere Tagesordnungspunkte parallel laufen, für jeden eine Dauer von 15 Minuten festlegen
+            const timeDifference = differenceInMinutes(startDateTime, endDateTime);
+            if (timeDifference === 0) {
+                endDateTime = new Date(endDateTime.getTime() + (15 * 60000)); // 15min addieren
+                logMessage(`${top} "${thema}" verläuft parallel mit einem anderen – Dauer von 0 auf 15min erhöht.`);
+            }
+
+            // Wenn der Endzeitpunkt vor dem Startzeitpunkt liegt, setze das Enddatum auf den nächsten Tag
+            if (endDateTime <= startDateTime) {
+                endDateTime.setDate(endDateTime.getDate() + 1);
+                logMessage(`${top} "${thema}" endet erst am nächsten Tag – Enddatum auf nächsten Tag gesetzt.`);
+            }
+
             const eventDescription = status ? `Status: ${status}\n\n${beschreibung}` : beschreibung;
 
             const agendaItem = {
@@ -818,6 +833,7 @@ async function parseAgenda(html) {
                 dtstamp: new Date().toISOString()
             };
             agendaItems.push(agendaItem);
+            logMessage(`${top} "${thema}" erfolgreich geparst.`);
         }
     });
 
@@ -1058,4 +1074,12 @@ async function invalidateCache(year, week, request) {
     if (!(year == currentYear && week == currentWeek)) {
         await cache.delete(new Request(`${baseUrl}data-list`));
     }
+}
+
+function logMessage(message) {
+    if (!loggingEnabled) return;
+
+    const currentTime = new Date().toLocaleTimeString("de-DE");
+    const functionName = logMessage.caller.name || 'anonymous';
+    console.log(`[${currentTime}] ${functionName}: ${message}`);
 }
