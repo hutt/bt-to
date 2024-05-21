@@ -371,7 +371,7 @@ Drucksache 20/10054";https://bundestag.de/dokumente/textarchiv/2024/kw03-de-zwei
 </main>
 
 <footer>
-    &copy; 2024 <a href="https://hutt.io">Jannis Hutt</a>.
+    Copyright &copy; 2024 <a href="https://hutt.io">Jannis Hutt</a> | <a href="https://hutt.io/datenschutz.html">Datenschutz</a> | <a href="https://hutt.io/#impressum">Impressum</a>
 </footer>
 
 <script>
