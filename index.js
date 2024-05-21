@@ -760,6 +760,12 @@ async function parseAgenda(html) {
             let endDateTime = new Date(date);
             endDateTime.setHours(endHour, endMinute);
 
+            // Wenn mehrere Tagesordnungspunkte parallel laufen, für jeden eine Dauer von 15 Minuten festlegen
+            const timeDifference = differenceInMinutes(startDateTime, endDateTime);
+            if (timeDifference === 0) {
+                endDateTime = new Date(endDateTime.getTime() + (15 * 60000)); // 15min addieren
+            }
+
             // Wenn der Endzeitpunkt vor dem Startzeitpunkt liegt, setze das Enddatum auf den nächsten Tag
             if (endDateTime <= startDateTime) {
                 endDateTime.setDate(endDateTime.getDate() + 1);
@@ -977,6 +983,22 @@ function getWeekNumber(date) {
     const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
 
     return weekNo;
+}
+
+// Differenz zwischen zwei Date-Objekten in Minuten berechnen und zurückgeben
+function differenceInMinutes(date1, date2) {
+    // Überprüfen, ob beide Argumente gültige Date-Objekte sind
+    if (!(date1 instanceof Date) || !(date2 instanceof Date)) {
+        throw new Error("Beide Argumente müssen gültige Date-Objekte sein");
+    }
+
+    // Berechnen der Differenz in Millisekunden
+    const diffInMillis = Math.abs(date2 - date1);
+
+    // Umwandeln der Millisekunden in Minuten
+    const diffInMinutes = Math.floor(diffInMillis / 60000);
+
+    return diffInMinutes;
 }
 
 // Getter für baseUrl
