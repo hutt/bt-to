@@ -16,3 +16,11 @@ compatibility_date = "2024-05-21"
 # Schedule cron triggers:
 # - Every 15 minutes
 crons = [ "*/15 * * * *" ]
+
+[vars]
+# Caching: API Responses
+API_CACHE_TTL = 1296000 # 15 Tage (15 * 24 * 60 * 60 = 1296000)
+# Caching: Liste mit Werten in Datenbank
+DATALIST_CACHE_TTL = 86400 # 24 Stunden (24 * 60 * 60 = 86400)
+# Logging aktivieren
+LOGGING_ENABLED = true

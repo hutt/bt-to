@@ -10,9 +10,9 @@
 import cheerio from "cheerio";
 
 // Variablen
-const cacheApiRequests = 30 * 24 * 60 * 60; // API Requests für 30 Tage cachen
-const cacheDataList = 24 * 60 * 60; // DataList für 24h cachen
-const loggingEnabled = true; // Setze auf false, um Logging zu deaktivieren
+const cacheApiRequests = API_CACHE_TTL || 30 * 24 * 60 * 60; // Default: API Requests für 30 Tage cachen
+const cacheDataList = DATALIST_CACHE_TTL || 24 * 60 * 60; // Default: DataList für 24h cachen
+const loggingEnabled = LOGGING_ENABLED || false; // Default: Logging deaktivieren
 
 // Event Listener für eingehende Anfragen und geplante Aufgaben
 addEventListener("fetch", (event) => {
