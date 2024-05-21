@@ -9,6 +9,10 @@
 
 import cheerio from "cheerio";
 
+// Variablen
+const cacheApiRequests = 30 * 24 * 60 * 60; // API Requests für 30 Tage cachen
+const cacheDataList = 24 * 60 * 60; // DataList für 24h cachen
+
 // Event Listener für eingehende Anfragen und geplante Aufgaben
 addEventListener("fetch", (event) => {
     event.respondWith(handleRequest(event));
@@ -32,13 +36,13 @@ async function handleRequest(event) {
     } else if (path === "/bt-to/data-list") {
         response = await serveDataList(request);
     } else if (path === "/bt-to/ical" || path === "/bt-to/ics") {
-        response = await serveAgenda("ical", params);
+        response = await serveAgenda("ical", params, request);
     } else if (path === "/bt-to/json") {
-        response = await serveAgenda("json", params);
+        response = await serveAgenda("json", params, request);
     } else if (path === "/bt-to/xml") {
-        response = await serveAgenda("xml", params);
+        response = await serveAgenda("xml", params, request);
     } else if (path === "/bt-to/csv") {
-        response = await serveAgenda("csv", params);
+        response = await serveAgenda("csv", params, request);
     } else {
         response = new Response("Not Found", { status: 404 });
     }
@@ -419,66 +423,65 @@ Drucksache 20/11319, 20/11340";https://bundestag.de/dokumente/textarchiv/2024/kw
     });
 }
 
-// Liste mit gecachten Daten bereitstellen
+// Liste mit vorhandenen Datensätzen ausgeben
 async function serveDataList(request) {
-    // Cache-Zeit für Daten aus KV Storage (15 Minuten in Sekunden)
-    const cacheDuration = 15 * 60; // 15 min in Sekunden
-
+    const baseUrl = getBaseUrl(request);
+    const cacheKey = `${baseUrl}data-list`;
+    const cacheDuration = cacheDataList;
     const cache = caches.default;
-    const cacheKey = new Request(new URL(request.url).toString());
 
-    // Versuchen, die Antwort aus dem Cache zu laden.
+    // Try to fetch from cache
     let cachedResponse = await cache.match(cacheKey);
     if (cachedResponse) {
         return cachedResponse;
     }
 
-    // Wenn nicht im Cache, aus dem KV Storage laden.
+    // If not in cache, load from KV storage
     let kvData = {};
     const currentYear = new Date().getFullYear();
     const currentWeek = getWeekNumber(new Date());
 
-    // Funktion zum Abrufen der Daten eines bestimmten Jahres
+    // Function to fetch data for a specific year
     const fetchYearData = async (year) => {
         let yearData = [];
-        // Erstellen eines Arrays mit den Wochen (1 bis 52) und paralleles Abrufen der Daten
+        // Create an array of weeks (1 to 52) and fetch data in parallel
         let weekData = await Promise.all(
             Array.from({ length: 52 }, (_, week) => week + 1).map(week =>
-                // Abrufen der Daten für jede Woche
+                // Fetch data for each week
                 data.get(`agenda-${year}-${week}`, { type: "json" }).then(dataItem => {
-                    // Überprüfen, ob die Daten vorhanden und nicht leer sind
+                    // Check if data is available and not empty
                     if (dataItem && Object.keys(dataItem).length > 0) {
-                        // Fügen Sie die Woche hinzu, wenn die Woche in der Vergangenheit oder der aktuellen Woche liegt
+                        // Add week if it is in the past or the current week
                         if ((year < currentYear) || (year === currentYear && week <= currentWeek)) {
                             return week;
                         }
                     }
-                    // Null zurückgeben, wenn keine Daten vorhanden sind
+                    // Return null if no data is available
                     return null;
                 })
             )
         );
 
-        // Filtern der Wochen, die tatsächlich Daten enthalten
+        // Filter out weeks that actually contain data
         weekData = weekData.filter(week => week !== null);
         return { year, weeks: weekData };
     };
 
-    // Erstellen eines Arrays mit Promises für jedes Jahr ab dem aktuellen Jahr bis 2020
+    // Create an array of promises for each year from the current year to 2020
     let yearPromises = [];
-    for (let year = currentYear; year >= 2020; year--) { // Daten vor 2020 nicht laden
+    for (let year = currentYear; year >= 2020; year--) { // Do not load data before 2020
         yearPromises.push(fetchYearData(year));
     }
 
-    // Warten auf die Auflösung aller Jahres-Promises
+    // Wait for all year promises to resolve
     const yearDataArray = await Promise.all(yearPromises);
 
-    // Umwandeln der Jahresdaten in ein Key-Value-Objekt
+    // Convert year data to a key-value object
     yearDataArray.forEach(yearData => {
         kvData[yearData.year] = yearData.weeks;
     });
 
-    // Cachen der abgerufenen Daten
+    // Cache the fetched data
     const response = new Response(JSON.stringify(kvData), {
         headers: { 'Content-Type': 'application/json' }
     });
@@ -488,44 +491,60 @@ async function serveDataList(request) {
     return response;
 }
 
-// Funktion zur Bereitstellung der Tagesordnung in verschiedenen Formaten
-async function serveAgenda(format, params) {
-    const year = params.get('year') || new Date().getFullYear(); // Aktuelles Jahr, falls kein Jahr angegeben ist
+// Tagesordnung im gewünschten Format ausgeben
+async function serveAgenda(format, params, request) {
+    const cache = caches.default;
+    const cacheKey = new URL(request.url).toString();
+    const cacheDuration = cacheApiRequests;
+
+    // Try to fetch from cache
+    let cachedResponse = await cache.match(cacheKey);
+    if (cachedResponse) {
+        return cachedResponse;
+    }
+
+    const year = params.get('year') || new Date().getFullYear(); // Current year if no year is specified
     const week = params.get('week');
     const month = params.get('month');
     const day = params.get('day');
     const status = params.get('status');
 
-    const currentWeek = getWeekNumber(new Date()); // Ermitteln der aktuellen Kalenderwoche
-    const currentYear = new Date().getFullYear(); // Ermitteln des aktuellen Jahres
+    const currentWeek = getWeekNumber(new Date()); // Get current week number
+    const currentYear = new Date().getFullYear(); // Get current year
 
-    // Überprüfen, ob das angeforderte Jahr und die Woche in der Zukunft liegen
+    // Check if the requested year and week are in the future
     if (year > currentYear || (year == currentYear && week > currentWeek)) {
         return new Response("Keine Daten für zukünftige Wochen", { status: 400 });
     }
 
     let agendaItems = [];
-    if (week) {
-        // Abrufen der Tagesordnung für eine bestimmte Woche
-        agendaItems = await getOrFetchAgendaByWeek(year, week);
+    if (week && year) {
+        // Fetch agenda for a specific week
+        agendaItems = await getOrFetchAgendaByWeek(year, week, request);
     } else if (month) {
-        // Abrufen der Tagesordnung für einen bestimmten Monat
-        agendaItems = await getOrFetchAgendaByMonth(year, month);
+        // Fetch agenda for a specific month
+        agendaItems = await getOrFetchAgendaByMonth(year, month, request);
     } else if (day) {
-        // Abrufen der Tagesordnung für einen bestimmten Tag
-        agendaItems = await getOrFetchAgendaByDay(year, month, day);
+        // Fetch agenda for a specific day
+        agendaItems = await getOrFetchAgendaByDay(year, month, day, request);
     } else {
-        // Abrufen der Tagesordnung für das ganze Jahr
-        agendaItems = await getOrFetchAgendaByYear(year);
+        // Fetch agenda for the entire year
+        agendaItems = await getOrFetchAgendaByYear(year, request);
     }
 
-    // Filter nach Status, falls angegeben
+    // Filter by status if specified
     if (status) {
         agendaItems = agendaItems.filter(item => item.status && item.status.includes(status));
     }
 
-    // Formatieren der Antwort je nach angefordertem Format
-    return formatAgendaResponse(format, agendaItems);
+    // Format the response according to the requested format
+    let response = formatAgendaResponse(format, agendaItems);
+
+    // Cache the response
+    response.headers.append('Cache-Control', `max-age=${cacheDuration}`);
+    await cache.put(cacheKey, response.clone());
+
+    return response;
 }
 
 // Tagesordnung per Cronjob (alle 15min) aktualisieren.
@@ -535,10 +554,10 @@ async function updateAgenda() {
     const html = await fetchAgenda(year, week);
     const newAgendaItems = await parseAgenda(html);
 
-    // Bereits existierende Tagesordnungspunkte aus KV Storage holen
+    // Already existing agenda items from KV storage
     const currentItemsRaw = await data.get(`agenda-${year}-${week}`, { type: "json" });
 
-    // Überprüfen, ob die Daten vorhanden und gültig sind
+    // Check if the data is available and valid
     let currentItemsArray = [];
     if (currentItemsRaw) {
         try {
@@ -553,7 +572,7 @@ async function updateAgenda() {
         }
     }
 
-    // Identifiziere neue und aktualisierte Items
+    // Identify new and updated items
     const updatedItems = [];
     const currentItemsMap = new Map(currentItemsArray.map(item => [item.uid, item]));
 
@@ -564,40 +583,44 @@ async function updateAgenda() {
         }
     }
 
-    // Speichere nur neue oder geänderte Items
+    // Save only new or changed items and invalidate the cache
     if (updatedItems.length > 0) {
         await data.put(`agenda-${year}-${week}`, JSON.stringify(newAgendaItems));
+        const simulatedRequest = {
+            url: `https://api.hutt.io/bt-to/update`
+        };
+        await invalidateCache(year, week, simulatedRequest);
     }
 }
 
 // Funktion zum Abrufen oder Abrufen und Speichern der Tagesordnung für eine bestimmte Woche
-async function getOrFetchAgendaByWeek(year, week) {
+async function getOrFetchAgendaByWeek(year, week, request) {
     const currentDate = new Date();
     const currentYear = currentDate.getFullYear();
     const currentWeek = getWeekNumber(currentDate);
 
-    // Überprüfen, ob die angeforderte Woche in der Zukunft liegt
+    // Check if the requested week is in the future
     if (year > currentYear || (year === currentYear && week > currentWeek)) {
         return [];
     }
 
-    // Abrufen der Tagesordnung aus der Datenbank
+    // Fetch agenda from the database
     let agendaItems = await data.get(`agenda-${year}-${week}`, { type: "json" });
     if (!agendaItems) {
-        // Falls die Daten nicht in der Datenbank sind, Abrufen und Speichern
-        await fetchAndStoreAgenda(year, week);
+        // If the data is not in the database, fetch and store it
+        await fetchAndStoreAgenda(year, week, request);
         agendaItems = await data.get(`agenda-${year}-${week}`, { type: "json" });
     }
     return agendaItems;
 }
 
 // Funktion zum Abrufen oder Abrufen und Speichern der Tagesordnung für einen bestimmten Tag
-async function getOrFetchAgendaByDay(year, month, day) {
+async function getOrFetchAgendaByDay(year, month, day, request) {
     // Ermitteln der Kalenderwoche, in die der angegebene Tag fällt
     const week = getWeekNumber(new Date(year, month - 1, day));
     
     // Abrufen der Tagesordnungspunkte für die Woche, in der der angegebene Tag liegt
-    const weekItems = await getOrFetchAgendaByWeek(year, week);
+    const weekItems = await getOrFetchAgendaByWeek(year, week, request);
     
     // Filtern der Tagesordnungspunkte, die genau auf den angegebenen Tag fallen
     const dayItems = weekItems.filter(item => {
@@ -611,22 +634,22 @@ async function getOrFetchAgendaByDay(year, month, day) {
 }
 
 // Funktion zum Abrufen oder Abrufen und Speichern der Tagesordnung für einen bestimmten Monat
-async function getOrFetchAgendaByMonth(year, month) {
+async function getOrFetchAgendaByMonth(year, month, request) {
     const weeksInMonth = getWeeksInMonth(year, month); // Ermitteln der Wochen im Monat
-    const weekPromises = weeksInMonth.map(week => getOrFetchAgendaByWeek(year, week)); // Abrufen der Daten für jede Woche
+    const weekPromises = weeksInMonth.map(week => getOrFetchAgendaByWeek(year, week, request)); // Abrufen der Daten für jede Woche
     const weekItemsArray = await Promise.all(weekPromises); // Warten auf alle Abrufe
     return weekItemsArray.flat(); // Zusammenfügen der Ergebnisse zu einem Array
 }
 
 // Funktion zum Abrufen oder Abrufen und Speichern der Tagesordnung für ein Jahr
-async function getOrFetchAgendaByYear(year) {
+async function getOrFetchAgendaByYear(year, request) {
     const currentDate = new Date();
     const currentWeek = getWeekNumber(currentDate); // Ermitteln der aktuellen Woche
     const weekPromises = [];
 
     // Schleife über alle Wochen des Jahres oder bis zur aktuellen Woche
     for (let week = 1; week <= (year === currentDate.getFullYear() ? currentWeek : 52); week++) {
-        weekPromises.push(getOrFetchAgendaByWeek(year, week)); // Hinzufügen des Abruf-Promises zur Liste
+        weekPromises.push(getOrFetchAgendaByWeek(year, week, request)); // Hinzufügen des Abruf-Promises zur Liste
     }
 
     const weekItemsArray = await Promise.all(weekPromises); // Warten auf alle Abrufe
@@ -671,21 +694,26 @@ function formatAgendaResponse(format, agendaItems) {
     });
 }
 
-// Tagesordnung für eine bestimmte Woche abrufen und speichern
-async function fetchAndStoreAgenda(year, week) {
+async function fetchAndStoreAgenda(year, week, request) {
     const currentDate = new Date();
     const currentYear = currentDate.getFullYear();
     const currentWeek = getWeekNumber(currentDate);
 
-    // Überprüfen, ob die angeforderte Woche in der Zukunft liegt
+    // Check if the requested week is in the future
     if (year > currentYear || (year === currentYear && week > currentWeek)) {
         return;
     }
 
     const html = await fetchAgenda(year, week);
     const newAgendaItems = await parseAgenda(html);
+    const existingAgendaItems = await data.get(`agenda-${year}-${week}`, { type: "json" });
+
     await data.put(`agenda-${year}-${week}`, JSON.stringify(newAgendaItems));
-    //console.log(`New Items fetched for week ${week} in year ${year}: ${JSON.stringify(newAgendaItems)}.`);
+
+    // Invalidate the cache for /bt-to/data-list if new data is added, except for the current week
+    if (JSON.stringify(newAgendaItems) !== JSON.stringify(existingAgendaItems) && !(year === currentYear && week === currentWeek)) {
+        await invalidateCache(year, week, request);
+    }
 }
 
 // Abrufen der Tagesordnung von der Bundestags-Website
@@ -949,4 +977,44 @@ function getWeekNumber(date) {
     const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
 
     return weekNo;
+}
+
+// Getter für baseUrl
+function getBaseUrl(request) {
+    const url = new URL(request.url);
+    if (url.hostname === "api.hutt.io") {
+        return "https://api.hutt.io/bt-to/";
+    } else {
+        return `${url.origin}/bt-to/`;
+    }
+}
+
+// Cache-Invalidierungsfunktion
+async function invalidateCache(year, week, request) {
+    const cache = caches.default;
+    const baseUrl = getBaseUrl(request);
+    const formats = ["ical", "json", "xml", "csv"];
+    const keys = [];
+
+    if (year && week) {
+        keys.push(...formats.map(format => new Request(`${baseUrl}${format}?year=${year}&week=${week}`)));
+        keys.push(...formats.map(format => new Request(`${baseUrl}${format}?week=${week}&year=${year}`)));
+    } else if (year) {
+        keys.push(...formats.map(format => new Request(`${baseUrl}${format}?year=${year}`)));
+    } else if (week) {
+        keys.push(...formats.map(format => new Request(`${baseUrl}${format}?week=${week}`)));
+    } else {
+        keys.push(...formats.map(format => new Request(`${baseUrl}${format}`)));
+    }
+
+    for (const key of keys) {
+        await cache.delete(key);
+    }
+
+    // Invalidate the cache for /bt-to/data-list, except for the current week
+    const currentYear = new Date().getFullYear();
+    const currentWeek = getWeekNumber(new Date());
+    if (!(year == currentYear && week == currentWeek)) {
+        await cache.delete(new Request(`${baseUrl}data-list`));
+    }
 }
