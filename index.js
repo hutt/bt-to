@@ -490,35 +490,41 @@ async function serveDataList(request) {
 
 // Funktion zur Bereitstellung der Tagesordnung in verschiedenen Formaten
 async function serveAgenda(format, params) {
-    const year = params.get('year') || new Date().getFullYear();
+    const year = params.get('year') || new Date().getFullYear(); // Aktuelles Jahr, falls kein Jahr angegeben ist
     const week = params.get('week');
     const month = params.get('month');
     const day = params.get('day');
     const status = params.get('status');
 
-    const currentWeek = getWeekNumber(new Date());
-    const currentYear = new Date().getFullYear();
+    const currentWeek = getWeekNumber(new Date()); // Ermitteln der aktuellen Kalenderwoche
+    const currentYear = new Date().getFullYear(); // Ermitteln des aktuellen Jahres
 
+    // Überprüfen, ob das angeforderte Jahr und die Woche in der Zukunft liegen
     if (year > currentYear || (year == currentYear && week > currentWeek)) {
         return new Response("Keine Daten für zukünftige Wochen", { status: 400 });
     }
 
     let agendaItems = [];
     if (week) {
+        // Abrufen der Tagesordnung für eine bestimmte Woche
         agendaItems = await getOrFetchAgendaByWeek(year, week);
     } else if (month) {
+        // Abrufen der Tagesordnung für einen bestimmten Monat
         agendaItems = await getOrFetchAgendaByMonth(year, month);
     } else if (day) {
+        // Abrufen der Tagesordnung für einen bestimmten Tag
         agendaItems = await getOrFetchAgendaByDay(year, month, day);
     } else {
+        // Abrufen der Tagesordnung für das ganze Jahr
         agendaItems = await getOrFetchAgendaByYear(year);
     }
 
-    // Filter nach Status
+    // Filter nach Status, falls angegeben
     if (status) {
         agendaItems = agendaItems.filter(item => item.status && item.status.includes(status));
     }
 
+    // Formatieren der Antwort je nach angefordertem Format
     return formatAgendaResponse(format, agendaItems);
 }
 
@@ -564,7 +570,7 @@ async function updateAgenda() {
     }
 }
 
-// Funktionen zum Abrufen oder Abrufen und Speichern der Tagesordnung
+// Funktion zum Abrufen oder Abrufen und Speichern der Tagesordnung für eine bestimmte Woche
 async function getOrFetchAgendaByWeek(year, week) {
     const currentDate = new Date();
     const currentYear = currentDate.getFullYear();
@@ -575,55 +581,70 @@ async function getOrFetchAgendaByWeek(year, week) {
         return [];
     }
 
+    // Abrufen der Tagesordnung aus der Datenbank
     let agendaItems = await data.get(`agenda-${year}-${week}`, { type: "json" });
     if (!agendaItems) {
+        // Falls die Daten nicht in der Datenbank sind, Abrufen und Speichern
         await fetchAndStoreAgenda(year, week);
         agendaItems = await data.get(`agenda-${year}-${week}`, { type: "json" });
-    } else {
-        //console.log(`Loaded Items for week ${week} in year ${year} from KV database: ${agendaItems}`);
     }
     return agendaItems;
 }
 
-async function getOrFetchAgendaByMonth(year, month) {
-    let agendaItems = [];
-    const weeksInMonth = getWeeksInMonth(year, month);
-    for (const week of weeksInMonth) {
-        const weekItems = await getOrFetchAgendaByWeek(year, week);
-        agendaItems = agendaItems.concat(weekItems);
-    }
-    return agendaItems;
-}
-
+// Funktion zum Abrufen oder Abrufen und Speichern der Tagesordnung für einen bestimmten Tag
 async function getOrFetchAgendaByDay(year, month, day) {
+    // Ermitteln der Kalenderwoche, in die der angegebene Tag fällt
     const week = getWeekNumber(new Date(year, month - 1, day));
+    
+    // Abrufen der Tagesordnungspunkte für die Woche, in der der angegebene Tag liegt
     const weekItems = await getOrFetchAgendaByWeek(year, week);
-    return weekItems.filter(item => new Date(item.start).getDate() === day);
+    
+    // Filtern der Tagesordnungspunkte, die genau auf den angegebenen Tag fallen
+    const dayItems = weekItems.filter(item => {
+        const itemDate = new Date(item.start);
+        return itemDate.getFullYear() === parseInt(year, 10) &&
+               itemDate.getMonth() === parseInt(month, 10) - 1 &&
+               itemDate.getDate() === parseInt(day, 10);
+    });
+    
+    return dayItems;
 }
 
+// Funktion zum Abrufen oder Abrufen und Speichern der Tagesordnung für einen bestimmten Monat
+async function getOrFetchAgendaByMonth(year, month) {
+    const weeksInMonth = getWeeksInMonth(year, month); // Ermitteln der Wochen im Monat
+    const weekPromises = weeksInMonth.map(week => getOrFetchAgendaByWeek(year, week)); // Abrufen der Daten für jede Woche
+    const weekItemsArray = await Promise.all(weekPromises); // Warten auf alle Abrufe
+    return weekItemsArray.flat(); // Zusammenfügen der Ergebnisse zu einem Array
+}
+
+// Funktion zum Abrufen oder Abrufen und Speichern der Tagesordnung für ein Jahr
 async function getOrFetchAgendaByYear(year) {
-    let agendaItems = [];
     const currentDate = new Date();
-    const currentWeek = getWeekNumber(currentDate);
+    const currentWeek = getWeekNumber(currentDate); // Ermitteln der aktuellen Woche
+    const weekPromises = [];
 
+    // Schleife über alle Wochen des Jahres oder bis zur aktuellen Woche
     for (let week = 1; week <= (year === currentDate.getFullYear() ? currentWeek : 52); week++) {
-        const weekItems = await getOrFetchAgendaByWeek(year, week);
-        agendaItems = agendaItems.concat(weekItems);
+        weekPromises.push(getOrFetchAgendaByWeek(year, week)); // Hinzufügen des Abruf-Promises zur Liste
     }
-    return agendaItems;
+
+    const weekItemsArray = await Promise.all(weekPromises); // Warten auf alle Abrufe
+    return weekItemsArray.flat(); // Zusammenfügen der Ergebnisse zu einem Array
 }
 
-// Wochen in einem Monat ermitteln
+// Funktion zur Ermittlung der Wochen in einem Monat
 function getWeeksInMonth(year, month) {
-    const weeks = new Set();
-    const firstDay = new Date(year, month - 1, 1);
-    const lastDay = new Date(year, month, 0);
+    const weeks = new Set(); // Set zur Speicherung der Wochen
+    const firstDay = new Date(year, month - 1, 1); // Erster Tag des Monats
+    const lastDay = new Date(year, month, 0); // Letzter Tag des Monats
 
-    for (let day = firstDay; day <= lastDay; day.setDate(day.getDate() + 1)) {
-        weeks.add(getWeekNumber(new Date(day)));
+    // Schleife über alle Tage des Monats
+    for (let day = new Date(firstDay); day <= lastDay; day.setDate(day.getDate() + 1)) {
+        weeks.add(getWeekNumber(day)); // Hinzufügen der Woche zum Set
     }
 
-    return Array.from(weeks);
+    return Array.from(weeks); // Umwandeln des Sets in ein Array
 }
 
 // Antwortformatierung je nach Anforderung (ical, json, xml, csv)
