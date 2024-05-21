@@ -235,16 +235,17 @@ async function serveDocumentation() {
 VERSION:2.0
 PRODID:-//hutt.io//api.hutt.io/bt-to//
 CALSCALE:GREGORIAN
-COLOR:#808080
+X-WR-TIMEZONE:Europe/Berlin
 X-WR-CALNAME:Tagesordnung Bundestag
 DESCRIPTION:Dieses iCal-Feed stellt die aktuelle Tagesordnung des Plen
-    ums des Deutschen Bundestages zur Verfügung. Es aktualisiert sich alle
-    15min selbst. Zwar ist der Sitzungsverlauf auch online unter bundesta
-    g.de/tagesordnung einsehbar, doch leider werden diese Daten nicht in e
-    inem maschinenlesbaren Format zur Verfügung gestellt. Deshalb war es Z
-    eit, das selbst in die Hand zu nehmen. Mehr Informationen über das Pro
-    jekt: https://api.hutt.io/bt-to/.
+ums des Deutschen Bundestages zur Verfügung. Es aktualisiert sich alle
+ 15min selbst. Zwar ist der Sitzungsverlauf auch online unter bundesta
+g.de/tagesordnung einsehbar, doch leider werden diese Daten nicht in e
+inem maschinenlesbaren Format zur Verfügung gestellt. Deshalb war es Z
+eit, das selbst in die Hand zu nehmen. Mehr Informationen über das Pro
+jekt: https://api.hutt.io/bt-to/.
 SOURCE;VALUE=URI:https://api.hutt.io/bt-to/ical
+COLOR:#808080
 BEGIN:VTIMEZONE
 TZID:Europe/Berlin
 BEGIN:STANDARD
@@ -264,21 +265,29 @@ END:DAYLIGHT
 END:VTIMEZONE
 […]
 BEGIN:VEVENT
-UID:1705512600000-zweites-haushaltsfinanzierungsgesetz-2024-top-5,-zp-
-    2@api.hutt.io
-DTSTAMP:20240520T132124Z
-DTSTART:20240117T173000Z
-DTEND:20240117T182000Z
-SUMMARY:TOP 5, ZP 2: Zweites Haushaltsfinanzierungsgesetz 2024
-                                                            
-DESCRIPTION:Status: Rede zu Protokoll: Lötzsch, Dr. Gesine (Gruppe Die
-    os)\nÜberweisung 20/9999, 20/10054 beschlossen\n\nErste Beratung des v
-    on den Fraktionen SPD, BÜNDNIS 90/DIE GRÜNEN und FDP \neingebrachten E
-    ntwurfs eines Zweiten Haushaltsfinanzierungsgesetzes 2024\nDrucksache 
-    20/9999\n\nZP 2) Beratung des Antrags der Fraktion der AfD\nLuftverkeh
-    rsteuer aussetzen und evaluieren\nDrucksache 20/10054
-URL:https://bundestag.de/dokumente/textarchiv/2024/kw03-de-zweites-hau
-    shaltsfinanzierungsgesetz-986276
+UID:1715777400000-fragestunde-top-2@api.hutt.io
+DTSTAMP:20240521T100025Z
+DTSTART;TZID=Europe/Berlin:20240515T125000
+DTEND;TZID=Europe/Berlin:20240515T133500
+SUMMARY:TOP 2: Fragestunde
+DESCRIPTION:Status: beendet\n\nFragestunde\nDrucksache 20/11319, 20/11
+340
+URL:https://bundestag.de/dokumente/textarchiv/2024/kw20-de-fragestunde
+-999696
+END:VEVENT
+BEGIN:VEVENT
+UID:1715780100000-aktuelle-stunde:-kernkraft-aus---vorgänge-um-bm-habe
+ck-und-bmn-lemke-zp-1@api.hutt.io
+DTSTAMP:20240521T100025Z
+DTSTART;TZID=Europe/Berlin:20240515T133500
+DTEND;TZID=Europe/Berlin:20240515T150000
+SUMMARY:ZP 1: Aktuelle Stunde: Kernkraft-Aus - Vorgänge um BM Habeck u
+nd BMn Lemke
+DESCRIPTION:Status: beendet\n\nAktuelle Stunde\nauf Verlangen der Frak
+tion der CDU/CSU\nKernkraft-Aus – Vorgänge um Bundesminister Habeck un
+d Bundesministerin Lemke transparent aufklären
+URL:https://bundestag.de/dokumente/textarchiv/2024/kw20-de-aktuelle-st
+unde-kernkraft-1002698
 END:VEVENT
 […]
 END:VCALENDAR</code></pre>
@@ -699,7 +708,11 @@ async function parseAgenda(html) {
             const startDateTime = new Date(date);
             startDateTime.setHours(startHour, startMinute);
 
-            const endDateTime = new Date(date);
+            let endDateTime = new Date(date);
+            if (endHour === 0 && endMinute === 0) {
+                endDateTime = new Date(endDateTime.setDate(endDateTime.getDate() + 1));
+            }
+            
             endDateTime.setHours(endHour, endMinute);
 
             let top = $(startRow).find('td[data-th="TOP"]').text().trim();
@@ -723,8 +736,8 @@ async function parseAgenda(html) {
             const eventDescription = status ? `Status: ${status}\n\n${beschreibung}` : beschreibung;
 
             const agendaItem = {
-                start: startDateTime.toISOString(),
-                end: endDateTime.toISOString(),
+                start: startDateTime.toISOString().replace(/Z/g, ''),
+                end: endDateTime.toISOString().replace(/Z/g, ''),
                 top: top,
                 thema: thema,
                 beschreibung: eventDescription,
@@ -801,7 +814,7 @@ function createIcal(agendaItems) {
 
         cal.push('BEGIN:VEVENT');
         cal.push(foldLine(`UID:${item.uid}`));
-        cal.push(foldLine(`DTSTAMP:${formatDateUTC(item.dtstamp)}`));
+        cal.push(foldLine(`DTSTAMP:${formatDate(item.dtstamp)}`));
         cal.push(foldLine(`DTSTART;TZID=Europe/Berlin:${formatDate(item.start)}`));
         cal.push(foldLine(`DTEND;TZID=Europe/Berlin:${formatDate(item.end)}`));
         cal.push(foldLine(`SUMMARY:${item.top ? `${item.top}: ${item.thema}` : item.thema}`));
@@ -890,51 +903,12 @@ function generateUID(startDateTime, thema, top) {
 
 // Formatieren des Datums nach den Anforderungen des Kalenders
 function formatDate(date) {
-    const berlinDate = convertUTCToBerlinTime(new Date(date));
-    return berlinDate.toISOString().replace(/[-:]/g, "").split(".")[0];
-}
-
-function formatDateUTC(date) {
-    return date.replace(/[-:]/g, "").split(".")[0] + "Z";
+    return new Date(date).toISOString().replace(/[-:]/g, "").split(".")[0];
 }
 
 // Formatieren des Datums für getMondayOfISOWeek()
 function formatDateOnly(date) {
     return date.split('T')[0].replace(/-/g, '');
-}
-
-// Hilfsfunktion zur Umwandlung von UTC-Datumsobjekt in Berlin-Datumsobjekt
-function convertUTCToBerlinTime(date) {
-    // Berechnen Sie das Jahr, Monat und Tag des übergebenen Datums
-    const year = date.getUTCFullYear();
-    const month = date.getUTCMonth();
-    const day = date.getUTCDate();
-    const hours = date.getUTCHours();
-    const minutes = date.getUTCMinutes();
-    const seconds = date.getUTCSeconds();
-    const milliseconds = date.getUTCMilliseconds();
-
-    // Hilfsfunktion, um den letzten Sonntag eines Monats zu finden
-    function getLastSunday(year, month) {
-        const lastDay = new Date(Date.UTC(year, month + 1, 0));
-        const dayOfWeek = lastDay.getUTCDay();
-        return lastDay.getUTCDate() - dayOfWeek;
-    }
-
-    // Festlegung der Sommerzeitregeln für Europe/Berlin
-    const startDST = new Date(Date.UTC(year, 2, getLastSunday(year, 2), 1)); // Letzter Sonntag im März um 01:00 UTC
-    const endDST = new Date(Date.UTC(year, 9, getLastSunday(year, 9), 1)); // Letzter Sonntag im Oktober um 01:00 UTC
-
-    // Überprüfen, ob die gegebene Zeit in die Sommerzeit fällt
-    let offset = 1; // Standard-Offset ist 1 Stunde (CET)
-    if (date >= startDST && date < endDST) {
-        offset = 2; // Während der Sommerzeit ist der Offset 2 Stunden (CEST)
-    }
-
-    // Berechnung des neuen Datumsobjekts unter Berücksichtigung des Offsets
-    const berlinTime = new Date(Date.UTC(year, month, day, hours + offset, minutes, seconds, milliseconds));
-
-    return berlinTime;
 }
 
 // Ermitteln, welches Datum der Montag einer Woche hat
