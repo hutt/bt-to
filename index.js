@@ -557,6 +557,15 @@ async function updateAgenda() {
 
 // Funktionen zum Abrufen oder Abrufen und Speichern der Tagesordnung
 async function getOrFetchAgendaByWeek(year, week) {
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentWeek = getWeekNumber(currentDate);
+
+    // Überprüfen, ob die angeforderte Woche in der Zukunft liegt
+    if (year > currentYear || (year === currentYear && week > currentWeek)) {
+        return [];
+    }
+
     let agendaItems = await data.get(`agenda-${year}-${week}`, { type: "json" });
     if (!agendaItems) {
         await fetchAndStoreAgenda(year, week);
@@ -792,7 +801,7 @@ function createIcal(agendaItems) {
 
         cal.push('BEGIN:VEVENT');
         cal.push(foldLine(`UID:${item.uid}`));
-        cal.push(foldLine(`DTSTAMP:${formatDate(item.dtstamp)}`));
+        cal.push(foldLine(`DTSTAMP:${formatDateUTC(item.dtstamp)}`));
         cal.push(foldLine(`DTSTART;TZID=Europe/Berlin:${formatDate(item.start)}`));
         cal.push(foldLine(`DTEND;TZID=Europe/Berlin:${formatDate(item.end)}`));
         cal.push(foldLine(`SUMMARY:${item.top ? `${item.top}: ${item.thema}` : item.thema}`));
@@ -881,12 +890,51 @@ function generateUID(startDateTime, thema, top) {
 
 // Formatieren des Datums nach den Anforderungen des Kalenders
 function formatDate(date) {
+    const berlinDate = convertUTCToBerlinTime(new Date(date));
+    return berlinDate.toISOString().replace(/[-:]/g, "").split(".")[0];
+}
+
+function formatDateUTC(date) {
     return date.replace(/[-:]/g, "").split(".")[0] + "Z";
 }
 
 // Formatieren des Datums für getMondayOfISOWeek()
 function formatDateOnly(date) {
     return date.split('T')[0].replace(/-/g, '');
+}
+
+// Hilfsfunktion zur Umwandlung von UTC-Datumsobjekt in Berlin-Datumsobjekt
+function convertUTCToBerlinTime(date) {
+    // Berechnen Sie das Jahr, Monat und Tag des übergebenen Datums
+    const year = date.getUTCFullYear();
+    const month = date.getUTCMonth();
+    const day = date.getUTCDate();
+    const hours = date.getUTCHours();
+    const minutes = date.getUTCMinutes();
+    const seconds = date.getUTCSeconds();
+    const milliseconds = date.getUTCMilliseconds();
+
+    // Hilfsfunktion, um den letzten Sonntag eines Monats zu finden
+    function getLastSunday(year, month) {
+        const lastDay = new Date(Date.UTC(year, month + 1, 0));
+        const dayOfWeek = lastDay.getUTCDay();
+        return lastDay.getUTCDate() - dayOfWeek;
+    }
+
+    // Festlegung der Sommerzeitregeln für Europe/Berlin
+    const startDST = new Date(Date.UTC(year, 2, getLastSunday(year, 2), 1)); // Letzter Sonntag im März um 01:00 UTC
+    const endDST = new Date(Date.UTC(year, 9, getLastSunday(year, 9), 1)); // Letzter Sonntag im Oktober um 01:00 UTC
+
+    // Überprüfen, ob die gegebene Zeit in die Sommerzeit fällt
+    let offset = 1; // Standard-Offset ist 1 Stunde (CET)
+    if (date >= startDST && date < endDST) {
+        offset = 2; // Während der Sommerzeit ist der Offset 2 Stunden (CEST)
+    }
+
+    // Berechnung des neuen Datumsobjekts unter Berücksichtigung des Offsets
+    const berlinTime = new Date(Date.UTC(year, month, day, hours + offset, minutes, seconds, milliseconds));
+
+    return berlinTime;
 }
 
 // Ermitteln, welches Datum der Montag einer Woche hat
