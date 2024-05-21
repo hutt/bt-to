@@ -103,7 +103,14 @@ async function serveDocumentation() {
             font-size: 1.5em;
             font-weight: 400;
             color: #333333;
-            margin-top: 1.6rem;
+            margin-top: 2rem;
+            margin-bottom: 0;
+        }
+        h4 {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #000;
+            margin-top: 1.8rem;
             margin-bottom: 0;
         }
         main {
@@ -210,29 +217,48 @@ async function serveDocumentation() {
             <li>Fügen Sie den Link <code>https://api.hutt.io/bt-to/ical</code> in das Feld neben „Adresse“ ein. Klicken Sie danach auf <strong>Weiter</strong>.</li>
             <li>Klicken Sie auf <strong>Fertigstellen</strong>.</li>
         </ol>
-        <h3>iOS Kalender-App</h3>
-        <ol>
-            <li>Öffnen Sie die <strong>Einstellungen</strong>-App.</li>
-            <li>Tippen Sie auf <strong>„Accounts & Passwörter“</strong>, wählen Sie <strong>„Account hinzufügen“</strong>, dann <strong>„Andere“</strong> aus.</li>
-            <li>Fügen Sie ein <strong>neues „Kalenderabo“</strong> mit der URL <code>https://api.hutt.io/bt-to/ical</code> hinzu.</li>
-        </ol>
         <h3>macOS Kalender-App</h3>
         <ol>
             <li>Öffnen Sie die <strong>Kalender</strong>-App.</li>
             <li>Gehen Sie in der Menüleiste zu <strong>„Datei“ > „Neues Kalenderabonnement“</strong>.</li>
             <li>Fügen Sie nun den Link <code>https://api.hutt.io/bt-to/ical</code> ein und klicken Sie auf <strong>„Abonnieren“</strong>.</li>
         </ol>
+        <h3>iOS Kalender-App</h3>
+        <ol>
+            <li>Öffnen Sie die <strong>Kalender</strong>-App.</li>
+            <li>Tippen Sie unten in der Mitte auf <strong>„Kalender“</strong>. Nun sollte sich eine Liste mit allen eingerichteten Kalendern öffnen.</li>
+            <li>Tippen Sie nun unten links auf <strong>„Hinzufügen“ > „Kalenderabonnement hinzufügen“</strong>.</li>
+            <li>Fügen Sie nun die URL <code>https://api.hutt.io/bt-to/ical</code> ein und tippen Sie dann auf <strong>„Abonnieren“</strong>.</li>
+            <li>Jetzt sollte eine Übersicht geladen werden, in der man den Kalendernamen, die Farbe und den Account auswählen kann, zu dem das Kalenderabo hinzugefügt werden soll. Bestätigen Sie mit einem letzten Tippen auf den <strong>„Hinzufügen“</strong>-Button rechts oben.</li>
+        </ol>
+    </section>
+
+    <section id="vorhandene-daten">
+        <h2>Vorhandene Daten</h2>
+        <p>Hier sind die mit dieser API abrufbaren Daten inklusive Download-Links für verschiedene Formate aufgelistet. Aktuell sind Abfragen auf Datensätze ab 2020 begrenzt.</p>
+        <ul id="data-list" class="data">
+            <li><svg width="12" height="12" stroke="#000" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><style>.spinner_V8m1{transform-origin:center;animation:spinner_zKoa 2s linear infinite}.spinner_V8m1 circle{stroke-linecap:round;animation:spinner_YpZS 1.5s ease-in-out infinite}@keyframes spinner_zKoa{100%{transform:rotate(360deg)}}@keyframes spinner_YpZS{0%{stroke-dasharray:0 150;stroke-dashoffset:0}47.5%{stroke-dasharray:42 150;stroke-dashoffset:-16}95%,100%{stroke-dasharray:42 150;stroke-dashoffset:-59}}</style><g class="spinner_V8m1"><circle cx="12" cy="12" r="9.5" fill="none" stroke-width="3"></circle></g></svg> Daten werden geladen...</li>
+        </ul>
     </section>
 
     <section id="api-endpoints">
         <h2>API Endpoints</h2>
         <p>GET-Parameter, die für Abfragen genutzt werden können:</p>
         <ul>
-            <li><code>year</code>: Das Jahr, für das die Tagesordnungen geholt werden sollen (optional)</li>
-            <li><code>week</code>: Die Kalenderwoche, für die die Tagesordnungen geholt werden sollen (optional; mit <code>year</code> kombinierbar)</li>
+            <li><code>year</code>: Das Jahr, für das die Tagesordnungen geholt werden sollen (optional).</li>
+            <li><code>week</code>: Die Kalenderwoche, für die die Tagesordnungen geholt werden sollen (optional; mit <code>year</code> kombinierbar).</li>
+        </ul>
+        <p><strong>Sind keine Parameter angegeben, werden die Daten für das laufende Kalenderjahr zurückgegeben.</strong></p>
+        <p>Aktuell sind Abfragen auf Datensätze ab dem Jahr 2020 begrenzt.</p>
+
+        <h3>Beispiele</h3>
+        <ul>
+            <li><code>GET https://api.hutt.io/bt-to/csv?year=2023</code> &ndash; alle Tagesordnungspunkte des Jahres 2023 im CSV-Format.</li>
+            <li><code>GET https://api.hutt.io/bt-to/json?week=20</code> &ndash; alle Tagesordnungspunkte in Kalenderwoche 20 im laufenden Jahr als Liste mit JSON-Objekten.</li>
+            <li><code>GET https://api.hutt.io/bt-to/xml?year=2022&week=2</code> &ndash; alle Tagesordnungspunkte in Kalenderwoche 2 im Jahr 2022 im XML-Format.</li>
         </ul>
 
-        <h3>iCal / ICS</h3>
+        <h4>iCal / ICS</h4>
         <p>Beispiel-Request:</p>
         <pre><code>GET https://api.hutt.io/bt-to/ical</code></pre>
         <p>Beispiel-Antwort:</p>
@@ -297,7 +323,7 @@ END:VEVENT
 […]
 END:VCALENDAR</code></pre>
 
-        <h3>JSON</h3>
+        <h4>JSON</h4>
         <p>Beispiel-Request:</p>
         <pre><code>GET https://api.hutt.io/bt-to/json</code></pre>
         <p>Beispiel-Antwort:</p>
@@ -317,7 +343,7 @@ END:VCALENDAR</code></pre>
     […]
 ]</code></pre>
 
-        <h3>XML</h3>
+        <h4>XML</h4>
         <p>Beispiel-Request:</p>
         <pre><code>GET https://api.hutt.io/bt-to/xml</code></pre>
         <p>Beispiel-Antwort:</p>
@@ -335,7 +361,7 @@ END:VCALENDAR</code></pre>
     […]
 &lt;/agenda&gt;</code></pre>
 
-        <h3>CSV</h3>
+        <h4>CSV</h4>
         <p>Beispiel-Request:</p>
         <pre><code>GET https://api.hutt.io/bt-to/csv</code></pre>
         <p>Beispiel-Antwort:</p>
@@ -346,14 +372,6 @@ END:VCALENDAR</code></pre>
 Fragestunde
 Drucksache 20/11319, 20/11340";https://bundestag.de/dokumente/textarchiv/2024/kw20-de-fragestunde-999696;beendet
 [...]</code></pre>
-    </section>
-
-    <section id="vorhandene-daten">
-        <h2>Vorhandene Daten</h2>
-        <p>Hier sind die mit dieser API abrufbaren Daten inkl. Links zum direkten Download aufgelistet. Aktuell sind Abfragen auf Datensätze ab 2020 begrenzt.</p>
-        <ul id="data-list" class="data">
-            <li><svg width="12" height="12" stroke="#000" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><style>.spinner_V8m1{transform-origin:center;animation:spinner_zKoa 2s linear infinite}.spinner_V8m1 circle{stroke-linecap:round;animation:spinner_YpZS 1.5s ease-in-out infinite}@keyframes spinner_zKoa{100%{transform:rotate(360deg)}}@keyframes spinner_YpZS{0%{stroke-dasharray:0 150;stroke-dashoffset:0}47.5%{stroke-dasharray:42 150;stroke-dashoffset:-16}95%,100%{stroke-dasharray:42 150;stroke-dashoffset:-59}}</style><g class="spinner_V8m1"><circle cx="12" cy="12" r="9.5" fill="none" stroke-width="3"></circle></g></svg> Daten werden geladen...</li>
-        </ul>
     </section>
 
     <section id="quellcode">
