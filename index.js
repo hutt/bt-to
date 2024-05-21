@@ -227,7 +227,7 @@ async function serveDocumentation() {
             <li><code>week</code>: Die Kalenderwoche, für die die Tagesordnungen geholt werden sollen (optional; mit <code>year</code> kombinierbar)</li>
         </ul>
 
-        <h3>iCal Format</h3>
+        <h3>iCal / ICS</h3>
         <p>Beispiel-Request:</p>
         <pre><code>GET https://api.hutt.io/bt-to/ical</code></pre>
         <p>Beispiel-Antwort:</p>
@@ -292,68 +292,55 @@ END:VEVENT
 […]
 END:VCALENDAR</code></pre>
 
-        <h3>JSON Format</h3>
+        <h3>JSON</h3>
         <p>Beispiel-Request:</p>
         <pre><code>GET https://api.hutt.io/bt-to/json</code></pre>
         <p>Beispiel-Antwort:</p>
         <pre><code class="hljs" data-lang="json">[
     […]
     {
-        "start":"2024-01-17T17:30:00.000Z",
-        "end":"2024-01-17T18:20:00.000Z",
-        "top":"TOP 5, ZP 2",
-        "thema":"Zweites Haushaltsfinanzierungsgesetz 2024",
-        "beschreibung":"Status: Rede zu Protokoll: Lötzsch, Dr. Gesine (fraktionslos)\nÜberweisung 20/9999, 20/10054 beschlossen\n\nErste Beratung des von den Fraktionen SPD, BÜNDNIS 90/DIE GRÜNEN und FDP \neingebrachten Entwurfs eines Zweiten Haushaltsfinanzierungsgesetzes 2024\nDrucksache 20/9999\n\nZP 2) Beratung des Antrags der Fraktion der AfD\nLuftverkehrsteuer aussetzen und evaluieren\nDrucksache 20/10054",
-        "url":"https://bundestag.de/dokumente/textarchiv/2024/kw03-de-zweites-haushaltsfinanzierungsgesetz-986276",
-        "status":"Rede zu Protokoll: Lötzsch, Dr. Gesine (fraktionslos)\nÜberweisung 20/9999, 20/10054 beschlossen",
-        "uid":"1705512600000-zweites-haushaltsfinanzierungsgesetz-2024-top-5,-zp-2@api.hutt.io",
-        "dtstamp":"2024-05-20T13:21:24.071Z",
+        "start":"2024-05-15T14:50:00.000",
+        "end":"2024-05-15T15:35:00.000",
+        "top":"TOP 2",
+        "thema":"Fragestunde",
+        "beschreibung":"Status: beendet\n\nFragestunde\nDrucksache 20/11319, 20/11340",
+        "url":"https://bundestag.de/dokumente/textarchiv/2024/kw20-de-fragestunde-999696",
+        "status":"beendet",
+        "uid":"1715784600000-fragestunde-top-2@api.hutt.io",
+        "dtstamp":"2024-05-21T11:09:37.775Z"
     },
     […]
 ]</code></pre>
 
-        <h3>XML Format</h3>
+        <h3>XML</h3>
         <p>Beispiel-Request:</p>
         <pre><code>GET https://api.hutt.io/bt-to/xml</code></pre>
         <p>Beispiel-Antwort:</p>
         <pre><code class="hljs" data-lang="xml">&lt;agenda&gt;
     […]
     &lt;event&gt;
-        &lt;start&gt;2024-01-17T17:30:00.000Z&lt;/start&gt;
-        &lt;end&gt;2024-01-17T18:20:00.000Z&lt;/end&gt;
-        &lt;top&gt;TOP 5, ZP 2&lt;/top&gt;
-        &lt;thema&gt;Zweites Haushaltsfinanzierungsgesetz 2024&lt;/thema&gt;
-        &lt;status&gt;
-            Rede zu Protokoll: Lötzsch, Dr. Gesine (fraktionslos) Überweisung 20/9999, 20/10054 beschlossen
-        &lt;/status&gt;
-        &lt;beschreibung&gt;
-            Status: Rede zu Protokoll: Lötzsch, Dr. Gesine (fraktionslos) Überweisung 20/9999, 20/10054 beschlossen Erste Beratung des von den Fraktionen SPD, BÜNDNIS 90/DIE GRÜNEN und FDP eingebrachten Entwurfs eines Zweiten Haushaltsfinanzierungsgesetzes 2024 Drucksache 20/9999 ZP 2) Beratung des Antrags der Fraktion der AfD Luftverkehrsteuer aussetzen und evaluieren Drucksache 20/10054
-        &lt;/beschreibung&gt;
-        &lt;url&gt;
-            https://bundestag.de/dokumente/textarchiv/2024/kw03-de-zweites-haushaltsfinanzierungsgesetz-986276
-        &lt;/url&gt;
+        &lt;start&gt;2024-05-15T14:50:00.000&lt;/start&gt;
+        &lt;end&gt;2024-05-15T15:35:00.000&lt;/end&gt;
+        &lt;top&gt;TOP 2&lt;/top&gt;
+        &lt;thema&gt;Fragestunde&lt;/thema&gt;
+        &lt;status&gt;beendet&lt;/status&gt;
+        &lt;beschreibung&gt;Status: beendet Fragestunde Drucksache 20/11319, 20/11340&lt;/beschreibung&gt;
+        &lt;url&gt;https://bundestag.de/dokumente/textarchiv/2024/kw20-de-fragestunde-999696&lt;/url&gt;
     &lt;/event&gt;
     […]
 &lt;/agenda&gt;</code></pre>
 
-        <h3>CSV Format</h3>
+        <h3>CSV</h3>
         <p>Beispiel-Request:</p>
         <pre><code>GET https://api.hutt.io/bt-to/csv</code></pre>
         <p>Beispiel-Antwort:</p>
         <pre><code class="hljs" data-lang="csv">Start;Ende;TOP;Thema;Beschreibung;URL;Status
-[…]
-2024-01-17T17:30:00.000Z;2024-01-17T18:20:00.000Z;TOP 5, ZP 2;Zweites Haushaltsfinanzierungsgesetz 2024;"Status: Rede zu Protokoll: Lötzsch, Dr. Gesine (fraktionslos)
-Überweisung 20/9999, 20/10054 beschlossen
+[...]
+2024-05-15T14:50:00.000;2024-05-15T15:35:00.000;TOP 2;Fragestunde;"Status: beendet
 
-Erste Beratung des von den Fraktionen SPD, BÜNDNIS 90/DIE GRÜNEN und FDP 
-eingebrachten Entwurfs eines Zweiten Haushaltsfinanzierungsgesetzes 2024
-Drucksache 20/9999
-
-ZP 2) Beratung des Antrags der Fraktion der AfD
-Luftverkehrsteuer aussetzen und evaluieren
-Drucksache 20/10054";https://bundestag.de/dokumente/textarchiv/2024/kw03-de-zweites-haushaltsfinanzierungsgesetz-986276;"Rede zu Protokoll: Lötzsch, Dr. Gesine (fraktionslos)
-Überweisung 20/9999, 20/10054 beschlossen"
-[…]</code></pre>
+Fragestunde
+Drucksache 20/11319, 20/11340";https://bundestag.de/dokumente/textarchiv/2024/kw20-de-fragestunde-999696;beendet
+[...]</code></pre>
     </section>
 
     <section id="vorhandene-daten">
@@ -709,7 +696,7 @@ async function parseAgenda(html) {
             startDateTime.setHours(startHour, startMinute);
 
             let endDateTime = new Date(date);
-            if (endHour === 0 && endMinute === 0) {
+            if (endHour === 0 && endMinute > 0) {
                 endDateTime = new Date(endDateTime.setDate(endDateTime.getDate() + 1));
             }
             
