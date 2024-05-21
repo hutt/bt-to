@@ -835,6 +835,7 @@ function createIcal(agendaItems) {
         'X-APPLE-CALENDAR-COLOR:#808080',
         'BEGIN:VTIMEZONE',
         'TZID:Europe/Berlin',
+        'X-LIC-LOCATION:Europe/Berlin',
         'BEGIN:STANDARD',
         'TZNAME:CET',
         'DTSTART:19701025T030000',
