@@ -421,13 +421,13 @@ Drucksache 20/11319, 20/11340";https://bundestag.de/dokumente/textarchiv/2024/kw
 
 // Liste mit gecachten Daten bereitstellen
 async function serveDataList(request) {
-    // Cache-Zeit für Daten aus KV Storage
+    // Cache-Zeit für Daten aus KV Storage (15 Minuten in Sekunden)
     const cacheDuration = 15 * 60; // 15 min in Sekunden
 
     const cache = caches.default;
     const cacheKey = new Request(new URL(request.url).toString());
 
-    // Versuchen, Antwort aus dem Cache zu laden.
+    // Versuchen, die Antwort aus dem Cache zu laden.
     let cachedResponse = await cache.match(cacheKey);
     if (cachedResponse) {
         return cachedResponse;
@@ -438,36 +438,47 @@ async function serveDataList(request) {
     const currentYear = new Date().getFullYear();
     const currentWeek = getWeekNumber(new Date());
 
+    // Funktion zum Abrufen der Daten eines bestimmten Jahres
     const fetchYearData = async (year) => {
         let yearData = [];
-        let weekPromises = [];
-
-        for (let week = 1; week <= 52; week++) {
-            weekPromises.push(data.get(`agenda-${year}-${week}`, { type: "json" }).then(dataItem => {
-                if (dataItem && Object.keys(dataItem).length > 0) {
-                    if ((year < currentYear) || (year === currentYear && week <= currentWeek)){
-                        yearData.push(week);
+        // Erstellen eines Arrays mit den Wochen (1 bis 52) und paralleles Abrufen der Daten
+        let weekData = await Promise.all(
+            Array.from({ length: 52 }, (_, week) => week + 1).map(week =>
+                // Abrufen der Daten für jede Woche
+                data.get(`agenda-${year}-${week}`, { type: "json" }).then(dataItem => {
+                    // Überprüfen, ob die Daten vorhanden und nicht leer sind
+                    if (dataItem && Object.keys(dataItem).length > 0) {
+                        // Fügen Sie die Woche hinzu, wenn die Woche in der Vergangenheit oder der aktuellen Woche liegt
+                        if ((year < currentYear) || (year === currentYear && week <= currentWeek)) {
+                            return week;
+                        }
                     }
-                }
-            }));
-        }
+                    // Null zurückgeben, wenn keine Daten vorhanden sind
+                    return null;
+                })
+            )
+        );
 
-        await Promise.all(weekPromises);
-        return { year, weeks: yearData };
+        // Filtern der Wochen, die tatsächlich Daten enthalten
+        weekData = weekData.filter(week => week !== null);
+        return { year, weeks: weekData };
     };
 
+    // Erstellen eines Arrays mit Promises für jedes Jahr ab dem aktuellen Jahr bis 2020
     let yearPromises = [];
     for (let year = currentYear; year >= 2020; year--) { // Daten vor 2020 nicht laden
         yearPromises.push(fetchYearData(year));
     }
 
+    // Warten auf die Auflösung aller Jahres-Promises
     const yearDataArray = await Promise.all(yearPromises);
 
+    // Umwandeln der Jahresdaten in ein Key-Value-Objekt
     yearDataArray.forEach(yearData => {
         kvData[yearData.year] = yearData.weeks;
     });
 
-    // Geholte Daten cachen
+    // Cachen der abgerufenen Daten
     const response = new Response(JSON.stringify(kvData), {
         headers: { 'Content-Type': 'application/json' }
     });
