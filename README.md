@@ -1,13 +1,18 @@
-# bt-to – Bundestags-Tagesordnung als iCal-Feed (und mehr)
+# BT-TO API 🏛️📅
+Bundestags-Tagesordnung als iCal-Feed (und mehr)
+
+![Link Preview Image](bt-to-api.svg)
 
 ## Overview
 
 **bt-to** is a Cloudflare Worker that fetches the session agenda (Tagesordnung) from the German Bundestag's website, stores it in a KV database, and serves it as an API. This project provides access to the Bundestag's session agenda in various formats, making it easier to integrate and consume this data programmatically.
 
 ## Hintergrund (DE)
+
 Der Deutsche Bundestag stellt seine Tagesordnung online zur Verfügung – nur leider in keinem maschinenlesbaren Format. Da in Sitzungswochen mindestens 734 Abgeordnetenbüros händisch die Tagesordnungspunkte in ihren Kalendern aktualisieren müssen, war es Zeit für eine Alternative. Jetzt genügt es, den mit diesem Cloudflare Worker generierten Kalender-Feed zu abonnieren, um immer auf dem Laufenden zu sein.
 
 ## Background (EN)
+
 The German Bundestag makes its agenda available online - but unfortunately not in a machine-readable format. Since at least 734 MPs' offices have to manually update the agenda items in their calendars during session weeks, it was time for an alternative. Now all you have to do is subscribe to the calendar feed generated with this Cloudflare Worker to always be up to date.
 
 ## Features
