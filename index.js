@@ -729,13 +729,13 @@ async function parseAgenda(html) {
             const startDateTime = new Date(date);
             startDateTime.setHours(startHour, startMinute);
 
-            let endDateTimeObject = new Date(date);
-            // Wenn der TOP zu einer Uhrzeit zwischen 00:00-00:59 Uhr endet, 
-            if (endHour === 0) {
-                endDateTimeObject = new Date(endDateTimeObject.setDate(endDateTimeObject.getDate() + 1));
-            }
-            const endDateTime = endDateTimeObject;
+            let endDateTime = new Date(date);
             endDateTime.setHours(endHour, endMinute);
+
+            // Wenn der Endzeitpunkt vor dem Startzeitpunkt liegt, setze das Enddatum auf den nächsten Tag
+            if (endDateTime <= startDateTime) {
+                endDateTime.setDate(endDateTime.getDate() + 1);
+            }
 
             let top = $(startRow).find('td[data-th="TOP"]').text().trim();
             const thema = $(startRow).find('td[data-th="Thema"] a.bt-top-collapser').text().trim();
@@ -749,10 +749,7 @@ async function parseAgenda(html) {
             // Prüfen, ob "TOP" vor der Zahl steht, wenn nicht, hinzufügen
             top = top.split(',').map(part => {
                 part = part.trim();
-                if (/^\d+$/.test(part)) {
-                    return `TOP ${part}`;
-                }
-                return part;
+                return /^\d+$/.test(part) ? `TOP ${part}` : part;
             }).join(', ');
 
             const eventDescription = status ? `Status: ${status}\n\n${beschreibung}` : beschreibung;
