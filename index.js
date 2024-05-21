@@ -435,6 +435,7 @@ async function serveDataList(request) {
     // Wenn nicht im Cache, aus dem KV Storage laden.
     let kvData = {};
     const currentYear = new Date().getFullYear();
+    const currentWeek = getWeekNumber(new Date());
 
     const fetchYearData = async (year) => {
         let yearData = [];
@@ -443,7 +444,9 @@ async function serveDataList(request) {
         for (let week = 1; week <= 52; week++) {
             weekPromises.push(data.get(`agenda-${year}-${week}`, { type: "json" }).then(dataItem => {
                 if (dataItem && Object.keys(dataItem).length > 0) {
-                    yearData.push(week);
+                    if ((year < currentYear) || (year === currentYear && week <= currentWeek)){
+                        yearData.push(week);
+                    }
                 }
             }));
         }
