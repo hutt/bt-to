@@ -10,7 +10,7 @@
 import cheerio from "cheerio";
 
 // Variablen
-const cacheApiRequests = API_CACHE_TTL || 30 * 24 * 60 * 60; // Default: API Requests für 30 Tage cachen
+const cacheApiRequests = API_CACHE_TTL || 60 * 60; // Default: API Requests für 1 Stunde cachen
 const cacheDataList = DATALIST_CACHE_TTL || 24 * 60 * 60; // Default: DataList für 24h cachen
 const loggingEnabled = LOGGING_ENABLED || false; // Default: Logging deaktivieren
 
@@ -246,8 +246,9 @@ async function serveDocumentation() {
         <h2>API Endpoints</h2>
         <p>GET-Parameter, die für Abfragen genutzt werden können:</p>
         <ul>
-            <li><code>year</code>: Das Jahr, für das die Tagesordnungen geholt werden sollen (optional).</li>
-            <li><code>week</code>: Die Kalenderwoche, für die die Tagesordnungen geholt werden sollen (optional; mit <code>year</code> kombinierbar).</li>
+            <li><code>year</code>: Das Jahr, für das die Tagesordnungen geholt werden sollen (Integer; optional).</li>
+            <li><code>week</code>: Die Kalenderwoche, für die die Tagesordnungen geholt werden sollen (Integer; optional; mit <code>year</code> kombinierbar).</li>
+            <li><code>na</code>: zusätzliche Kalendereinträge für Namentliche Abstimmungen erstellen (Boolean; optional; kombinierbar; <strong>nur für iCal-Feeds</strong>).</li>
         </ul>
         <p><strong>Sind keine Parameter angegeben, werden die Daten für das laufende Kalenderjahr zurückgegeben.</strong></p>
         <p>Aktuell sind Abfragen auf Datensätze ab dem Jahr 2020 begrenzt.</p>
@@ -257,9 +258,11 @@ async function serveDocumentation() {
             <li><code>GET https://api.hutt.io/bt-to/csv?year=2023</code> &ndash; alle Tagesordnungspunkte des Jahres 2023 im CSV-Format.</li>
             <li><code>GET https://api.hutt.io/bt-to/json?week=20</code> &ndash; alle Tagesordnungspunkte in Kalenderwoche 20 im laufenden Jahr als Liste mit JSON-Objekten.</li>
             <li><code>GET https://api.hutt.io/bt-to/xml?year=2022&week=2</code> &ndash; alle Tagesordnungspunkte in Kalenderwoche 2 im Jahr 2022 im XML-Format.</li>
+            <li><code>GET https://api.hutt.io/bt-to/ical?na=true</code> &ndash; alle Tagesordnungspunkte des laufenden Kalenderjahres inklusive zusätzlicher Termine für Namentliche Abstimmungen als iCal-Feed.</li>
         </ul>
 
         <h4>iCal / ICS</h4>
+        <p>Dieser Endpoint bietet die Möglichkeit, zusätzliche Termine für Namentliche Abstimmungen zu erstellen. Diese beginnen unmittelbar nach Ende des Tagesordnungspunktes, zu dem abgestimmt werden soll und werden für eine Dauer von 15 min in den Kalender eingetragen. Um einen Feed mit solchen Einträgen zu generieren, muss der GET-Parameter <code>na</code> mit dem Wert <code>true</code> angehängt werden.</p>
         <p>Beispiel-Request:</p>
         <pre><code>GET https://api.hutt.io/bt-to/ical</code></pre>
         <p>Beispiel-Antwort:</p>
@@ -516,23 +519,24 @@ async function serveAgenda(format, params, request) {
     const cacheKey = new URL(request.url).toString();
     const cacheDuration = cacheApiRequests;
 
-    // Try to fetch from cache
+    // Versuchen, Response aus dem Cache zu laden
     let cachedResponse = await cache.match(cacheKey);
     if (cachedResponse) {
         logMessage(`API Response für ${cacheKey} aus dem Cache geladen.`);
         return cachedResponse;
     }
 
-    const year = params.get('year') || new Date().getFullYear(); // Current year if no year is specified
+    const year = params.get('year') || new Date().getFullYear(); // Aktuelles Jahr, wenn kein Jahr angegeben ist
     const week = params.get('week');
     const month = params.get('month');
     const day = params.get('day');
     const status = params.get('status');
+    const includeNA = params.get('na') === 'true';
 
-    const currentWeek = getWeekNumber(new Date()); // Get current week number
-    const currentYear = new Date().getFullYear(); // Get current year
+    const currentWeek = getWeekNumber(new Date()); // Aktuelle Kalenderwoche
+    const currentYear = new Date().getFullYear(); // Aktuelles Jahr
 
-    // Check if the requested year and week are in the future
+    // Prüfen, ob die angeforderte Woche in der Zukunft liegt.
     if (year > currentYear || (year == currentYear && week > currentWeek)) {
         logMessage(`API Response für ${cacheKey} wurde nicht geladen: Der angeforderte Zeitraum liegt in der Zukunft.`);
         return new Response("Keine Daten für zukünftige Wochen", { status: 400 });
@@ -540,28 +544,35 @@ async function serveAgenda(format, params, request) {
 
     let agendaItems = [];
     if (week && year) {
-        // Fetch agenda for a specific week
+        // Tagesordnung für Woche holen
         agendaItems = await getOrFetchAgendaByWeek(year, week, request);
     } else if (month) {
-        // Fetch agenda for a specific month
+        // Tagesordnung für Monat holen
         agendaItems = await getOrFetchAgendaByMonth(year, month, request);
     } else if (day) {
-        // Fetch agenda for a specific day
+        // Tagesordnung für Tag holen
         agendaItems = await getOrFetchAgendaByDay(year, month, day, request);
     } else {
-        // Fetch agenda for the entire year
+        // Tagesordnung für Jahr holen
         agendaItems = await getOrFetchAgendaByYear(year, request);
     }
 
-    // Filter by status if specified
+    // Status filtern, wenn angegeben
     if (status) {
         agendaItems = agendaItems.filter(item => item.status && item.status.includes(status));
     }
 
-    // Format the response according to the requested format
-    let response = formatAgendaResponse(format, agendaItems);
+    // Antwort im entsprechenden Format zurückgeben
+    let response;
+    if (format === "ical") {
+        response = new Response(createIcal(agendaItems, includeNA), {
+            headers: { "content-type": "text/calendar; charset=utf-8" },
+        });
+    } else {
+        response = formatAgendaResponse(format, agendaItems);
+    }
 
-    // Cache the response
+    // Antwort cachen
     response.headers.append('Cache-Control', `max-age=${cacheDuration}`);
     await cache.put(cacheKey, response.clone());
     logMessage(`API-Response für ${cacheKey} gecached.`);
@@ -799,6 +810,7 @@ async function parseAgenda(html) {
             const url = urlElem.length > 0 ? `https://bundestag.de${urlElem.attr("data-url")}` : "";
             const statusElem = $(startRow).find('td[data-th="Status/ Abstimmung"] p');
             const status = statusElem.length > 0 ? statusElem.html().replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "").trim() : "";
+            const namentlicheAbstimmung = beschreibung.endsWith("Namentliche Abstimmung");
 
             // Prüfen, ob "TOP" vor der Zahl steht, wenn nicht, hinzufügen
             top = top.split(',').map(part => {
@@ -829,6 +841,7 @@ async function parseAgenda(html) {
                 beschreibung: eventDescription,
                 url: url,
                 status: status,
+                namentliche_abstimmung: namentlicheAbstimmung,
                 uid: generateUID(startDateTime, thema, top),
                 dtstamp: new Date().toISOString()
             };
@@ -854,7 +867,7 @@ function foldLine(line) {
     return result;
 }
 
-function createIcal(agendaItems) {
+function createIcal(agendaItems, includeNA = false) {
     const cal = [
         'BEGIN:VCALENDAR',
         'VERSION:2.0',
@@ -894,7 +907,7 @@ function createIcal(agendaItems) {
         let dtend = new Date(item.end);
 
         if (dtend <= dtstart) {
-            dtend = new Date(dtstart.getTime() + 60000); // Add one minute
+            dtend = new Date(dtstart.getTime() + 60000); // Eine Minute hinzufügen
         }
 
         const weekNumber = getWeekNumber(dtstart);
@@ -911,6 +924,24 @@ function createIcal(agendaItems) {
             cal.push(foldLine(`URL:${item.url}`));
         }
         cal.push('END:VEVENT');
+
+        // Ggfs. Kalendereintrag für Namentliche Abstimmung erstellen
+        if (includeNA && item.namentliche_abstimmung) {
+            const naStart = new Date(item.end);
+            const naEnd = new Date(naStart.getTime() + 15 * 60 * 1000); // 15 Minuten später
+
+            cal.push('BEGIN:VEVENT');
+            cal.push(foldLine(`UID:${generateUID(naStart, `Namentliche Abstimmung: ${item.thema}`, '')}`));
+            cal.push(foldLine(`DTSTAMP:${formatDate(new Date().toISOString())}`));
+            cal.push(foldLine(`DTSTART;TZID=Europe/Berlin:${formatDate(naStart.toISOString())}`));
+            cal.push(foldLine(`DTEND;TZID=Europe/Berlin:${formatDate(naEnd.toISOString())}`));
+            cal.push(foldLine(`SUMMARY:Namentliche Abstimmung: ${item.thema}`));
+            cal.push(foldLine(`DESCRIPTION:Namentliche Abstimmung zu ${item.top ? `${item.top}: ${item.thema}` : item.thema}.`));
+            if (item.url) {
+                cal.push(foldLine(`URL:${item.url}`));
+            }
+            cal.push('END:VEVENT');
+        }
     });
 
     weeksWithItems.forEach(week => {
@@ -1056,12 +1087,20 @@ async function invalidateCache(year, week, request) {
     if (year && week) {
         keys.push(...formats.map(format => new Request(`${baseUrl}${format}?year=${year}&week=${week}`)));
         keys.push(...formats.map(format => new Request(`${baseUrl}${format}?week=${week}&year=${year}`)));
+        keys.push(...formats.map(format => new Request(`${baseUrl}${format}?week=${week}&year=${year}&na=true`)));
+        keys.push(...formats.map(format => new Request(`${baseUrl}${format}?week=${week}&na=true&year=${year}`)));
+        keys.push(...formats.map(format => new Request(`${baseUrl}${format}?na=true&week=${week}&year=${year}`)));
     } else if (year) {
         keys.push(...formats.map(format => new Request(`${baseUrl}${format}?year=${year}`)));
+        keys.push(...formats.map(format => new Request(`${baseUrl}${format}?year=${year}&na=true`)));
+        keys.push(...formats.map(format => new Request(`${baseUrl}${format}?na=true&year=${year}`)));
     } else if (week) {
         keys.push(...formats.map(format => new Request(`${baseUrl}${format}?week=${week}`)));
+        keys.push(...formats.map(format => new Request(`${baseUrl}${format}?week=${week}&na=true`)));
+        keys.push(...formats.map(format => new Request(`${baseUrl}${format}?na=true&week=${week}`)));
     } else {
         keys.push(...formats.map(format => new Request(`${baseUrl}${format}`)));
+        keys.push(...formats.map(format => new Request(`${baseUrl}${format}?na=true`)));
     }
 
     for (const key of keys) {
