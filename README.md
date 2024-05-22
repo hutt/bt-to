@@ -82,6 +82,9 @@ The German Bundestag makes its agenda available online - but unfortunately not i
 - **Parameters**:
   - `year`: Optional, the year of the agenda.
   - `week`: Optional, the week of the agenda.
+  - `na`: Optional, boolean; if true, includes additional calendar entries for nominal votes.
+  - `naAlarm`: Optional, boolean; if true, sets an alarm 15 minutes before nominal votes.
+  - `showSW`: Optional, boolean; if true, includes all-day events for session weeks.
 
 ### Fetch Agenda in JSON Format
 
