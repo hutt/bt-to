@@ -241,14 +241,6 @@ async function serveDocumentation() {
         </ol>
     </section>
 
-    <section id="vorhandene-daten">
-        <h2>Vorhandene Daten</h2>
-        <p>Hier sind die mit dieser API abrufbaren Daten inklusive Download-Links für verschiedene Formate aufgelistet. Aktuell sind Abfragen auf Datensätze ab 2020 begrenzt.</p>
-        <ul id="data-list" class="data">
-            <li><svg width="12" height="12" stroke="#000" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><style>.spinner_V8m1{transform-origin:center;animation:spinner_zKoa 2s linear infinite}.spinner_V8m1 circle{stroke-linecap:round;animation:spinner_YpZS 1.5s ease-in-out infinite}@keyframes spinner_zKoa{100%{transform:rotate(360deg)}}@keyframes spinner_YpZS{0%{stroke-dasharray:0 150;stroke-dashoffset:0}47.5%{stroke-dasharray:42 150;stroke-dashoffset:-16}95%,100%{stroke-dasharray:42 150;stroke-dashoffset:-59}}</style><g class="spinner_V8m1"><circle cx="12" cy="12" r="9.5" fill="none" stroke-width="3"></circle></g></svg> Daten werden geladen...</li>
-        </ul>
-    </section>
-
     <section id="api-endpoints">
         <h2>API Endpoints</h2>
         <p>GET-Parameter, die für Abfragen genutzt werden können:</p>
@@ -258,7 +250,7 @@ async function serveDocumentation() {
             <li><code>na</code>: zusätzliche Kalendereinträge für Namentliche Abstimmungen erstellen (Boolean; optional; kombinierbar; <strong>nur für iCal-Feeds</strong>).</li>
         </ul>
         <p><strong>Sind keine Parameter angegeben, werden die Daten für das laufende Kalenderjahr zurückgegeben.</strong></p>
-        <p>Aktuell sind Abfragen auf Datensätze ab dem Jahr 2020 begrenzt.</p>
+        <p>Aktuell sind Abfragen auf Datensätze ab dem Jahr 2015 begrenzt.</p>
 
         <h3>Beispiele</h3>
         <ul>
@@ -398,6 +390,14 @@ Drucksache 20/11319, 20/11340";https://bundestag.de/dokumente/textarchiv/2024/kw
         <p>Vielen Dank!</p>
         <p><a class="buy-me-a-coffee" href="https://www.buymeacoffee.com/jannishutt" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a></p>
     </section>
+
+    <section id="vorhandene-daten">
+    <h2>Vorhandene Daten</h2>
+        <p>Hier sind die mit dieser API abrufbaren Daten inklusive Download-Links für verschiedene Formate aufgelistet. Aktuell sind Abfragen auf Datensätze ab 2015 begrenzt.</p>
+        <ul id="data-list" class="data">
+            <li><svg width="12" height="12" stroke="#000" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><style>.spinner_V8m1{transform-origin:center;animation:spinner_zKoa 2s linear infinite}.spinner_V8m1 circle{stroke-linecap:round;animation:spinner_YpZS 1.5s ease-in-out infinite}@keyframes spinner_zKoa{100%{transform:rotate(360deg)}}@keyframes spinner_YpZS{0%{stroke-dasharray:0 150;stroke-dashoffset:0}47.5%{stroke-dasharray:42 150;stroke-dashoffset:-16}95%,100%{stroke-dasharray:42 150;stroke-dashoffset:-59}}</style><g class="spinner_V8m1"><circle cx="12" cy="12" r="9.5" fill="none" stroke-width="3"></circle></g></svg> Daten werden geladen...</li>
+        </ul>
+    </section>
 </main>
 
 <footer>
@@ -509,9 +509,9 @@ async function fetchDataListFromKV() {
         return { year, weeks: weekData };
     };
 
-    // Create an array of promises for each year from the current year to 2020
+    // Create an array of promises for each year from the current year to 2015
     let yearPromises = [];
-    for (let year = currentYear; year >= 2020; year--) { // Do not load data before 2020
+    for (let year = currentYear; year >= 2015; year--) { // Do not load data before 2015
         yearPromises.push(fetchYearData(year));
     }
 
