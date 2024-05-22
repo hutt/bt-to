@@ -340,6 +340,7 @@ END:VCALENDAR</code></pre>
         "beschreibung":"Status: beendet\n\nFragestunde\nDrucksache 20/11319, 20/11340",
         "url":"https://bundestag.de/dokumente/textarchiv/2024/kw20-de-fragestunde-999696",
         "status":"beendet",
+        "namentliche_abstimmung": false,
         "uid":"1715784600000-fragestunde-top-2@api.hutt.io",
         "dtstamp":"2024-05-21T11:09:37.775Z"
     },
@@ -359,6 +360,7 @@ END:VCALENDAR</code></pre>
         &lt;thema&gt;Fragestunde&lt;/thema&gt;
         &lt;status&gt;beendet&lt;/status&gt;
         &lt;beschreibung&gt;Status: beendet Fragestunde Drucksache 20/11319, 20/11340&lt;/beschreibung&gt;
+        &lt;namentliche_abstimmung&gt;false&lt;/namentliche_abstimmung&gt;
         &lt;url&gt;https://bundestag.de/dokumente/textarchiv/2024/kw20-de-fragestunde-999696&lt;/url&gt;
     &lt;/event&gt;
     […]
@@ -368,12 +370,12 @@ END:VCALENDAR</code></pre>
         <p>Beispiel-Request:</p>
         <pre><code>GET https://api.hutt.io/bt-to/csv</code></pre>
         <p>Beispiel-Antwort:</p>
-        <pre><code class="hljs" data-lang="csv">Start;Ende;TOP;Thema;Beschreibung;URL;Status
+        <pre><code class="hljs" data-lang="csv">Start;Ende;TOP;Thema;Beschreibung;URL;Status;NA
 [...]
 2024-05-15T14:50:00.000;2024-05-15T15:35:00.000;TOP 2;Fragestunde;"Status: beendet
 
 Fragestunde
-Drucksache 20/11319, 20/11340";https://bundestag.de/dokumente/textarchiv/2024/kw20-de-fragestunde-999696;beendet
+Drucksache 20/11319, 20/11340";https://bundestag.de/dokumente/textarchiv/2024/kw20-de-fragestunde-999696;beendet;false
 [...]</code></pre>
     </section>
 
@@ -989,6 +991,9 @@ function createXml(agendaItems) {
             xml += `    <status>${item.status}</status>\n`;
         }
         xml += `    <beschreibung>${item.beschreibung}</beschreibung>\n`;
+        if (item.namentliche_abstimmung) {
+            xml += `    <namentliche_abstimmung>${item.namentliche_abstimmung}</namentliche_abstimmung>\n`;
+        }
         if (item.url) {
             xml += `    <url>${item.url}</url>\n`;
         }
@@ -1000,7 +1005,7 @@ function createXml(agendaItems) {
 
   function createCsv(agendaItems) {
     const csvRows = [
-      ["Start", "Ende", "TOP", "Thema", "Beschreibung", "URL", "Status"].map(escapeCsvValue).join(",")
+      ["Start", "Ende", "TOP", "Thema", "Beschreibung", "URL", "Status", "NA"].map(escapeCsvValue).join(",")
     ];
     agendaItems.forEach((item) => {
       const row = [
@@ -1010,7 +1015,8 @@ function createXml(agendaItems) {
         item.thema,
         item.beschreibung,
         item.url,
-        item.status
+        item.status,
+        item.namentliche_abstimmung
       ].map(escapeCsvValue).join(",");
       csvRows.push(row);
     });
