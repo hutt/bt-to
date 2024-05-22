@@ -19,7 +19,7 @@ crons = [ "*/15 * * * *" ]
 
 [vars]
 # Caching: API Responses
-API_CACHE_TTL = 3600 # 1 Stunde in Sekunden
+API_CACHE_TTL = 21600 # 6 Stunden in Sekunden
 # Caching: Liste mit Werten in Datenbank
 DATALIST_CACHE_TTL = 86400 # 24 Stunden in Sekunden
 # Logging aktivieren

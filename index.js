@@ -264,11 +264,15 @@ async function serveDocumentation() {
             <p class="options-heading">Optionen auswählen:</p>
             <label>
                 <input type="checkbox" id="na">
-                Kalenderereignisse für Namentliche Abstimmungen erstellen
+                zusätzliche Kalenderereignisse für <strong>Namentliche Abstimmungen</strong> erstellen
             </label>
             <label>
                 <input type="checkbox" id="naAlarm">
-                15min vor Namentlichen Abstimmungen daran erinnert werden
+                15min vor Namentlichen Abstimmungen <strong>erinnert werden</strong>
+            </label>
+            <label>
+                <input type="checkbox" id="showSW">
+                Sitzungswochen durch <strong>ganztägigen Termin <em>„Sitzungswoche“</em></strong> von Mo-Fr kennzeichnen
             </label>
             <p>iCal-Feed-Link: <code id="ical-link-field" class="ical-link">https://api.hutt.io/bt-to/ical</code>
                 <a id="copy-link" title="Link in Zwischenablage kopieren">
@@ -335,6 +339,7 @@ async function serveDocumentation() {
         <ul>
             <li><code>na</code>: zusätzliche Kalendereinträge für Namentliche Abstimmungen erstellen (Boolean; optional; kombinierbar).</li>
             <li><code>naAlarm</code>: zusätzliche Kalendereinträge für Namentliche Abstimmungen mit Alarm 15min vor Beginn versehen (Boolean; optional; kombinierbar).</li>
+            <li><code>showSW</code>: für Sitzungswochen zusätzlichen ganztägigen Termin <em>„Sitzungswoche“</em> von Montag bis Freitag erstellen (Boolean; optional; kombinierbar).</li>
         </ul>
         <p><strong>Sind keine Parameter angegeben, werden die Daten für das laufende Kalenderjahr zurückgegeben.</strong> Aktuell sind Abfragen auf Datensätze ab dem Jahr 2015 begrenzt.</p>
 
@@ -344,6 +349,7 @@ async function serveDocumentation() {
             <li><code>GET https://api.hutt.io/bt-to/json?week=20</code> &ndash; alle Tagesordnungspunkte in Kalenderwoche 20 im laufenden Jahr als Liste mit JSON-Objekten.</li>
             <li><code>GET https://api.hutt.io/bt-to/xml?year=2022&week=2</code> &ndash; alle Tagesordnungspunkte in Kalenderwoche 2 im Jahr 2022 im XML-Format.</li>
             <li><code>GET https://api.hutt.io/bt-to/ical?na=true</code> &ndash; alle Tagesordnungspunkte des laufenden Kalenderjahres inklusive zusätzlicher Termine für Namentliche Abstimmungen als iCal-Feed.</li>
+            <li><code>GET https://api.hutt.io/bt-to/ical?showSW=true</code> &ndash; alle Tagesordnungspunkte des laufenden Kalenderjahres inklusive ganztägiger Termine für Sitzungswochen als iCal-Feed.</li>
         </ul>
 
         <h4>iCal / ICS</h4>
@@ -491,6 +497,7 @@ Drucksache 20/11319, 20/11340";https://bundestag.de/dokumente/textarchiv/2024/kw
         // iCal-Feed-Link-Generator
         const naCheckbox = document.getElementById("na");
         const naAlarmCheckbox = document.getElementById("naAlarm");
+        const showSWCheckbox = document.getElementById("showSW");
         const icalLinkField = document.getElementById("ical-link-field");
         const icalLinkElements = document.getElementsByClassName("ical-link");
         const copyLink = document.getElementById("copy-link");
@@ -502,6 +509,7 @@ Drucksache 20/11319, 20/11340";https://bundestag.de/dokumente/textarchiv/2024/kw
             let params = [];
             if (naCheckbox.checked) params.push("na=true");
             if (naCheckbox.checked && naAlarmCheckbox.checked) params.push("naAlarm=true");
+            if (showSWCheckbox.checked) params.push("showSW=true");
             for (const icalLinkElement of icalLinkElements) {
                 icalLinkElement.textContent = baseUrl + (params.length ? "?" + params.join("&") : "");
             }
@@ -524,6 +532,7 @@ Drucksache 20/11319, 20/11340";https://bundestag.de/dokumente/textarchiv/2024/kw
         });
 
         naAlarmCheckbox.addEventListener("change", updateIcalLink);
+        showSWCheckbox.addEventListener("change", updateIcalLink);
 
         copyLink.addEventListener("click", () => {
             const range = document.createRange();
@@ -709,8 +718,9 @@ async function serveAgenda(format, params, request) {
     const month = params.get('month');
     const day = params.get('day');
     const status = params.get('status');
-    const includeNA = params.get('na') === 'true';
-    const naAlarm = params.get('naAlarm') === 'true';
+    const includeNA = params.get('na') === 'true'; // Namentliche Abstimmungen als zusätzliche Termine im Kalender eintragen
+    const naAlarm = params.get('naAlarm') === 'true'; // Wenn na == true: Kalenderhinweis 15min vor Namentlichen Abstimmungen zeigen
+    const showSW = params.get('showSW') === 'true'; // Für Sitzungswochen ein ganztägiges Kalenderereignis von Mo - Fr erstellen
 
     const currentWeek = getWeekNumber(new Date()); // Aktuelle Kalenderwoche
     const currentYear = new Date().getFullYear(); // Aktuelles Jahr
@@ -744,7 +754,7 @@ async function serveAgenda(format, params, request) {
     // Antwort im entsprechenden Format zurückgeben
     let response;
     if (format === "ical") {
-        response = new Response(createIcal(agendaItems, includeNA, naAlarm), {
+        response = new Response(createIcal(agendaItems, includeNA, naAlarm, showSW), {
             headers: { "content-type": "text/calendar; charset=utf-8" },
         });
     } else {
@@ -1065,7 +1075,7 @@ function foldLine(line) {
     return result;
 }
 
-function createIcal(agendaItems, includeNA = false, naAlarm = false) {
+function createIcal(agendaItems, includeNA = false, naAlarm = false, showSW = false) {
     const cal = [
         'BEGIN:VCALENDAR',
         'VERSION:2.0',
@@ -1153,20 +1163,23 @@ function createIcal(agendaItems, includeNA = false, naAlarm = false) {
         }
     });
 
-    weeksWithItems.forEach(week => {
-        const [year, weekNumber] = week.split('-');
-        const monday = getMondayOfISOWeek(weekNumber, year);
-        const friday = new Date(monday);
-        friday.setDate(monday.getDate() + 4);
+    // Wenn showSW = true ist und die Woche mindestens einen TOP hat, von Montag bis Freitag ganztägiges Ereignis "Sitzungswoche" erstellen
+    if (showSW) {
+        weeksWithItems.forEach(week => {
+            const [year, weekNumber] = week.split('-');
+            const monday = getMondayOfISOWeek(weekNumber, year);
+            const friday = new Date(monday);
+            friday.setDate(monday.getDate() + 4);
 
-        cal.push('BEGIN:VEVENT');
-        cal.push(foldLine(`UID:${generateUID(monday, 'Sitzungswoche', '')}`));
-        cal.push(foldLine(`DTSTAMP:${formatDate(new Date().toISOString())}`));
-        cal.push(foldLine(`DTSTART;VALUE=DATE:${formatDateOnly(monday.toISOString())}`));
-        cal.push(foldLine(`DTEND;VALUE=DATE:${formatDateOnly(new Date(friday.getTime() + 24 * 60 * 60 * 1000).toISOString())}`));
-        cal.push(foldLine(`SUMMARY:Sitzungswoche`));
-        cal.push('END:VEVENT');
-    });
+            cal.push('BEGIN:VEVENT');
+            cal.push(foldLine(`UID:${generateUID(monday, 'Sitzungswoche', '')}`));
+            cal.push(foldLine(`DTSTAMP:${formatDate(new Date().toISOString())}`));
+            cal.push(foldLine(`DTSTART;VALUE=DATE:${formatDateOnly(monday.toISOString())}`));
+            cal.push(foldLine(`DTEND;VALUE=DATE:${formatDateOnly(new Date(friday.getTime() + 24 * 60 * 60 * 1000).toISOString())}`));
+            cal.push(foldLine(`SUMMARY:Sitzungswoche`));
+            cal.push('END:VEVENT');
+        });
+    }
 
     cal.push('END:VCALENDAR');
 
