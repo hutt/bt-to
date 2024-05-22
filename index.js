@@ -203,7 +203,7 @@ async function serveDocumentation() {
         <h2>Kalenderfeed abonnieren</h2>
         <p>Um die &ndash; in Sitzungswochen alle 15min aktualisiserten &ndash; Tagesordnungen des laufenden Jahres als iCal-Feed zu abonnieren, kann folgende URL verwendet werden: <code>https://api.hutt.io/bt-to/ical</code>.</p>
         <p>Neben <strong>Startzeit, TOP und Thema</strong> enthalten die Kalendereinträge außerdem <strong>aktuelle Informationen zum Status des Tagesordnungspunktes</strong>, den etwas ausführlicheren <strong>Beschreibungstext</strong> und, falls vorhanden, einen <strong>Link zum zugehörigen Artikel</strong> im bundestag.de-Textearchiv.</p>
-        <p>Mithilfe des GET-Parameters <code>na</code> ist es außerdem möglich, eigenständige Kalendereinträge für Namentliche Abstimmungen zu erzeugen. Diese schließen zeitlich direkt an den vorangegangenen TOP an und haben eine fixe Dauer von je 15 Minuten. Dazu einfach folgende URL nutzen: <code>https://api.hutt.io/bt-to/ical?na=true</code>.</p>
+        <p>Mithilfe des GET-Parameters <code>na</code> ist es außerdem möglich, <strong>eigenständige Kalendereinträge für Namentliche Abstimmungen</strong> zu erzeugen. Diese schließen zeitlich direkt an den vorangegangenen TOP an und haben eine fixe Dauer von je 15 Minuten. Dazu einfach folgende URL nutzen: <code>https://api.hutt.io/bt-to/ical?na=true</code>.</p>
         <p>Aus Performance-Gründen enthält dieses Feed <em>nicht</em> die Tagesordnungen vergangener Kalenderjahre. Sie können mit dieser API allerdings auch abgefragt oder <a href="#vorhandene-daten">händisch heruntergeladen</a> werden.</p>
         <h3>Outlook (Windows)</h3>
         <ol>
