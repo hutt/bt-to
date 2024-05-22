@@ -24,3 +24,7 @@ API_CACHE_TTL = 3600 # 1 Stunde in Sekunden
 DATALIST_CACHE_TTL = 86400 # 24 Stunden in Sekunden
 # Logging aktivieren
 LOGGING_ENABLED = true
+# Cache leeren
+PURGE_CACHE = false
+# Key Value Storage leeren
+PURGE_KV = false

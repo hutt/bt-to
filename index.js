@@ -14,6 +14,10 @@ const cacheApiRequests = API_CACHE_TTL || 60 * 60; // Default: API Requests für
 const cacheDataList = DATALIST_CACHE_TTL || 24 * 60 * 60; // Default: DataList für 24h cachen
 const loggingEnabled = LOGGING_ENABLED || false; // Default: Logging deaktivieren
 
+// Wartungs-Variablen (purges können bei gesetzten Variablen durch Aufrufen von /bt-to/purge ausgeführt werden)
+const purgeCache = PURGE_CACHE || false; // Cache löschen
+const purgeKV = PURGE_KV || false; // Key Value Storage löschen
+
 // Event Listener für eingehende Anfragen und geplante Aufgaben
 addEventListener("fetch", (event) => {
     event.respondWith(handleRequest(event));
@@ -44,6 +48,8 @@ async function handleRequest(event) {
         response = await serveAgenda("xml", params, request);
     } else if (path === "/bt-to/csv") {
         response = await serveAgenda("csv", params, request);
+    } else if (path === "/bt-to/purge") {
+        response = await handlePurgeRequest(request);
     } else {
         response = new Response("Not Found", { status: 404 });
     }
@@ -460,6 +466,19 @@ async function serveDataList(request) {
     }
 
     // If not in cache, load from KV storage
+    const kvData = await fetchDataListFromKV();
+
+    // Cache the fetched data
+    const response = new Response(JSON.stringify(kvData), {
+        headers: { 'Content-Type': 'application/json' }
+    });
+    response.headers.append('Cache-Control', `max-age=${cacheDuration}`);
+    await cache.put(cacheKey, response.clone());
+
+    return response;
+}
+
+async function fetchDataListFromKV() {
     let kvData = {};
     const currentYear = new Date().getFullYear();
     const currentWeek = getWeekNumber(new Date());
@@ -504,14 +523,7 @@ async function serveDataList(request) {
         kvData[yearData.year] = yearData.weeks;
     });
 
-    // Cache the fetched data
-    const response = new Response(JSON.stringify(kvData), {
-        headers: { 'Content-Type': 'application/json' }
-    });
-    response.headers.append('Cache-Control', `max-age=${cacheDuration}`);
-    await cache.put(cacheKey, response.clone());
-
-    return response;
+    return kvData;
 }
 
 // Tagesordnung im gewünschten Format ausgeben
@@ -1116,6 +1128,71 @@ async function invalidateCache(year, week, request) {
     }
 }
 
+// Zur Wartung: Cache/KV leeren
+async function handlePurgeRequest(request) {
+    const url = new URL(request.url);
+    const baseUrl = `${url.origin}/bt-to/`;
+
+    if (purgeCache || purgeKV) {
+        let result = '';
+        if (purgeCache) {
+            result += await purgeCacheFunction();
+        }
+        if (purgeKV) {
+            result += await purgeKVFunction(); // Assuming you have a similar function for purging KV storage
+        }
+        return new Response(result, { status: 200 });
+    } else {
+        return Response.redirect(baseUrl);
+    }
+}
+
+// Cache leeren
+async function purgeCacheFunction() {
+    const cache = caches.default;
+    const baseUrl = "https://api.hutt.io/bt-to/";
+    const formats = ["ical", "json", "xml", "csv"];
+
+    let keys = [];
+
+    // Alle Jahre aus dem KV Storage abrufen
+    const kvData = await fetchDataListFromKV(); // Holen der Daten aus KV Storage
+
+    // Cache-Keys für alle Jahre und Wochen generieren
+    Object.keys(kvData).forEach(year => {
+        kvData[year].forEach(week => {
+            formats.forEach(format => {
+                keys.push(`${baseUrl}${format}?year=${year}`);
+                keys.push(`${baseUrl}${format}?year=${year}&week=${week}`);
+                keys.push(`${baseUrl}${format}?week=${week}&year=${year}`);
+                keys.push(`${baseUrl}${format}?year=${year}&week=${week}&na=true`);
+                keys.push(`${baseUrl}${format}?week=${week}&year=${year}&na=true`);
+                keys.push(`${baseUrl}${format}?week=${week}&na=true&year=${year}`);
+                keys.push(`${baseUrl}${format}?na=true&week=${week}&year=${year}`);
+                keys.push(`${baseUrl}${format}?na=true&year=${year}&week=${week}`);
+            });
+        });
+    });
+
+    // Hinzufügen des data-list Endpunkts
+    keys.push(`${baseUrl}data-list`);
+
+    // Löschen der Cache-Keys
+    let deletePromises = keys.map(key => cache.delete(new Request(key)));
+    await Promise.all(deletePromises);
+    return "Known Cache entries cleared successfully.";
+}
+
+
+// KV leeren
+async function purgeKVFunction() {
+    const kvKeys = await data.list();  // Annahme: `data` ist das KV-Speicher-Objekt
+    let deletePromises = kvKeys.keys.map(key => data.delete(key.name));
+    await Promise.all(deletePromises);
+    return "KV Storage cleared successfully.";
+}
+
+// Logging
 function logMessage(message) {
     if (!loggingEnabled) return;
 
