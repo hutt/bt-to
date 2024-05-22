@@ -159,6 +159,9 @@ async function serveDocumentation() {
         strong {
             font-weight: 600;
         }
+        strong.year-toggle {
+            cursor: pointer;
+        }
         code {
             background-color: #e8e8e8;
             padding: 2px 4px;
@@ -239,6 +242,14 @@ async function serveDocumentation() {
             <li>Fügen Sie nun die URL <code>https://api.hutt.io/bt-to/ical</code> ein und tippen Sie dann auf <strong>„Abonnieren“</strong>.</li>
             <li>Jetzt sollte eine Übersicht geladen werden, in der man den Kalendernamen, die Farbe und den Account auswählen kann, zu dem das Kalenderabo hinzugefügt werden soll. Bestätigen Sie mit einem letzten Tippen auf den <strong>„Hinzufügen“</strong>-Button rechts oben.</li>
         </ol>
+    </section>
+
+    <section id="vorhandene-daten">
+    <h2>Vorhandene Daten</h2>
+        <p>Hier sind die mit dieser API abrufbaren Daten inklusive Download-Links für verschiedene Formate aufgelistet. Aktuell sind Abfragen auf Datensätze ab 2015 begrenzt. Die Kalenderwochen können mit einem Klick auf das Jahr aufgeklappt werden.</p>
+        <ul id="data-list" class="data">
+            <li><svg width="12" height="12" stroke="#000" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><style>.spinner_V8m1{transform-origin:center;animation:spinner_zKoa 2s linear infinite}.spinner_V8m1 circle{stroke-linecap:round;animation:spinner_YpZS 1.5s ease-in-out infinite}@keyframes spinner_zKoa{100%{transform:rotate(360deg)}}@keyframes spinner_YpZS{0%{stroke-dasharray:0 150;stroke-dashoffset:0}47.5%{stroke-dasharray:42 150;stroke-dashoffset:-16}95%,100%{stroke-dasharray:42 150;stroke-dashoffset:-59}}</style><g class="spinner_V8m1"><circle cx="12" cy="12" r="9.5" fill="none" stroke-width="3"></circle></g></svg> Daten werden geladen...</li>
+        </ul>
     </section>
 
     <section id="api-endpoints">
@@ -393,13 +404,6 @@ Drucksache 20/11319, 20/11340";https://bundestag.de/dokumente/textarchiv/2024/kw
         <p><a class="buy-me-a-coffee" href="https://www.buymeacoffee.com/jannishutt" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a></p>
     </section>
 
-    <section id="vorhandene-daten">
-    <h2>Vorhandene Daten</h2>
-        <p>Hier sind die mit dieser API abrufbaren Daten inklusive Download-Links für verschiedene Formate aufgelistet. Aktuell sind Abfragen auf Datensätze ab 2015 begrenzt.</p>
-        <ul id="data-list" class="data">
-            <li><svg width="12" height="12" stroke="#000" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><style>.spinner_V8m1{transform-origin:center;animation:spinner_zKoa 2s linear infinite}.spinner_V8m1 circle{stroke-linecap:round;animation:spinner_YpZS 1.5s ease-in-out infinite}@keyframes spinner_zKoa{100%{transform:rotate(360deg)}}@keyframes spinner_YpZS{0%{stroke-dasharray:0 150;stroke-dashoffset:0}47.5%{stroke-dasharray:42 150;stroke-dashoffset:-16}95%,100%{stroke-dasharray:42 150;stroke-dashoffset:-59}}</style><g class="spinner_V8m1"><circle cx="12" cy="12" r="9.5" fill="none" stroke-width="3"></circle></g></svg> Daten werden geladen...</li>
-        </ul>
-    </section>
 </main>
 
 <footer>
@@ -407,41 +411,60 @@ Drucksache 20/11319, 20/11340";https://bundestag.de/dokumente/textarchiv/2024/kw
 </footer>
 
 <script>
-    document.addEventListener("DOMContentLoaded", async () => {
+    document.addEventListener("DOMContentLoaded", async function() {
         const response = await fetch("/bt-to/data-list");
         const kvData = await response.json();
         const dataListElement = document.getElementById("data-list");
 
-        const years = Object.keys(kvData).sort((a, b) => b - a); // Jahre absteigend sortieren
+        const years = Object.keys(kvData).sort(function(a, b) { return b - a; });
         let dataListHtml = '';
 
-        years.forEach(year => {
-            const weeks = kvData[year].filter(week => week).sort((a, b) => a - b); // Wochen pro Jahr aufsteigend sortieren und leere Objekte herausfiltern
-            let weeksHtml = '';
-            if (weeks.length === 0) {
-                weeksHtml = '<li>keine Daten</li>';
-            } else {
-                weeks.forEach(week => {
-                    weeksHtml += \`
-                        <li>Kalenderwoche \${week} 
-                            (<a href="/bt-to/ical?year=\${year}&week=\${week}">iCal</a> | 
-                            <a href="/bt-to/json?year=\${year}&week=\${week}">JSON</a> | 
-                            <a href="/bt-to/xml?year=\${year}&week=\${week}">XML</a> | 
-                            <a href="/bt-to/csv?year=\${year}&week=\${week}">CSV</a>)
-                        </li>\`;
-                });
-            }
-
-            const yearLinks = weeks.length >= 1 ? \` 
-                (<a href="/bt-to/ical?year=\${year}">iCal</a> | 
-                <a href="/bt-to/json?year=\${year}">JSON</a> | 
-                <a href="/bt-to/xml?year=\${year}">XML</a> | 
-                <a href="/bt-to/csv?year=\${year}">CSV</a>)\` : '';
-
-            dataListHtml += \`<li><strong>\${year}</strong>\${yearLinks}<ul class="data">\${weeksHtml}</ul></li>\`;
+        years.forEach(function(year) {
+            dataListHtml += 
+                '<li>' +
+                    '<strong class="year-toggle" data-year="' + year + '">' + year + '</strong> ' +
+                    '(<a href="/bt-to/ical?year=' + year + '">iCal</a> | <a href="/bt-to/json?year=' + year + '">JSON</a> | <a href="/bt-to/xml?year=' + year + '">XML</a> | <a href="/bt-to/csv?year=' + year + '">CSV</a>)' +
+                    '<ul id="weeks-' + year + '" class="weeks-list data" style="display: none;"></ul>' +
+                '</li>';
         });
 
         dataListElement.innerHTML = dataListHtml;
+
+        document.querySelectorAll('.year-toggle').forEach(function(element) {
+            element.addEventListener('click', async function(event) {
+                const year = event.target.getAttribute('data-year');
+                const weeksList = document.getElementById('weeks-' + year);
+                
+                if (weeksList.style.display === 'none') {
+                    // Wochen ausklappen
+                    weeksList.style.display = 'block';
+                    
+                    if (weeksList.innerHTML === '') {
+                        const weeks = kvData[year].filter(function(week) { return week; }).sort(function(a, b) { return a - b; });
+                        let weeksHtml = '';
+                        
+                        if (weeks.length === 0) {
+                            weeksHtml = '<li>keine Daten</li>';
+                        } else {
+                            weeks.forEach(function(week) {
+                                weeksHtml += 
+                                    '<li>Kalenderwoche ' + week +
+                                        ' (<a href="/bt-to/ical?year=' + year + '&week=' + week + '">iCal</a> | ' +
+                                        '<a href="/bt-to/json?year=' + year + '&week=' + week + '">JSON</a> | ' +
+                                        '<a href="/bt-to/xml?year=' + year + '&week=' + week + '">XML</a> | ' +
+                                        '<a href="/bt-to/csv?year=' + year + '&week=' + week + '">CSV</a>)' +
+                                    '</li>';
+                            });
+                        }
+
+                        weeksList.innerHTML = weeksHtml;
+                    }
+                } else {
+                    // Wochen einklappen
+                    weeksList.style.display = 'none';
+                }
+            });
+        });
     });
 </script>
 
