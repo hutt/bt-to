@@ -128,6 +128,12 @@ async function serveDocumentation() {
             border-radius: 8px;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
         }
+        @media (max-width: 840px) {
+            main {
+                margin: 1rem;
+                padding: 15px;
+            }
+        }
         ul {
             list-style-type: disc;
             padding-left: 20px;
@@ -181,14 +187,53 @@ async function serveDocumentation() {
             font-size: 0.8em;
             color: #777;
         }
-        @media (max-width: 800px) {
-            main {
-                margin: 1rem;
-                padding: 15px;
-            }
-            footer {
-                font-size: 0.6em;
-            }
+        #ical-generator {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        #ical-generator p.options-heading {
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+        #ical-generator label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 1em;
+        }
+        #ical-generator input[type="checkbox"] {
+            margin-right: 10px;
+        }
+        #ical-generator label.disabled {
+            color: #888;
+        }
+        code#ical-link-field {
+            margin-top: 10px;
+            padding: 5px;
+            background-color: #e8e8e8;
+            border-radius: 3px;
+            font-family: monospace;
+            word-wrap: break-word;
+        }
+        svg#copy-icon {
+            vertical-align: bottom;
+        }
+        svg#copy-icon:hover {
+            fill: #0a4445;
+        }
+        a#copy-link {
+            margin-left: 0.25rem;
+            text-decoration: none;
+            border-bottom: none;
+            cursor: pointer;
+        }
+        span#copy-confirmation {
+            margin-left: 0.25rem;
+            display:none;
+            font-size: 0.9em;
+            color: #888;
         }
     </style>
 </head>
@@ -213,34 +258,61 @@ async function serveDocumentation() {
         <p>Um die &ndash; in Sitzungswochen alle 15min aktualisiserten &ndash; Tagesordnungen des laufenden Jahres als iCal-Feed zu abonnieren, kann folgende URL verwendet werden: <code>https://api.hutt.io/bt-to/ical</code>.</p>
         <p>Neben <strong>Startzeit, TOP und Thema</strong> enthalten die Kalendereinträge außerdem <strong>aktuelle Informationen zum Status des Tagesordnungspunktes</strong>, den etwas ausführlicheren <strong>Beschreibungstext</strong> und, falls vorhanden, einen <strong>Link zum zugehörigen Artikel</strong> im bundestag.de-Textearchiv.</p>
         <p>Aus Performance-Gründen enthält dieses Feed <em>nicht</em> die Tagesordnungen vergangener Kalenderjahre. Sie können mit dieser API allerdings auch abgefragt oder <a href="#vorhandene-daten">händisch heruntergeladen</a> werden.</p>
+        
+        <h3>iCal-Feed-Link-Generator</h3>
+        <form id="ical-generator">
+            <p class="options-heading">Optionen auswählen:</p>
+            <label>
+                <input type="checkbox" id="na">
+                Kalenderereignisse für Namentliche Abstimmungen erstellen
+            </label>
+            <label>
+                <input type="checkbox" id="naAlarm">
+                15min vor Namentlichen Abstimmungen daran erinnert werden
+            </label>
+            <p>iCal-Feed-Link: <code id="ical-link-field" class="ical-link">https://api.hutt.io/bt-to/ical</code>
+                <a id="copy-link" title="Link in Zwischenablage kopieren">
+                    <svg id="copy-icon" class="bi bi-clipboard" xmlns="http://www.w3.org/2000/svg" width="1.3em" height="1.3em" viewBox="0 0 20 23" fill-rule="evenodd" stroke-linejoin="round" stroke-miterlimit="2" fill="#888888">
+                        <path d="M20 2.368v13.264A2.37 2.37 0 0 1 17.632 18H6.263a2.37 2.37 0 0 1-2.368-2.368V2.368A2.37 2.37 0 0 1 6.263 0h11.369A2.37 2.37 0 0 1 20 2.368z"/>
+                        <path d="M0 19.5c.001 1.371 1.129 2.499 2.5 2.5h11c1.371-.001 2.499-1.129 2.5-2.5V19H6.26c-1.847-.004-3.366-1.523-3.37-3.37V4H2.5C1.129 4.001.001 5.129 0 6.5v13z" fill-rule="nonzero"/>
+                    </svg>
+                </a>
+                <span id="copy-confirmation">In Zwischenablage gespeichert!</span>
+            </p>
+        </form>
+
         <h3>Outlook (Windows)</h3>
         <ol>
             <li>Öffnen Sie Ihren Outlook-Kalender, und wählen Sie auf der Registerkarte Start die Option <strong>Kalender hinzufügen > Aus dem Internet</strong> aus.
-            <li>Fügen Sie die URL <code>https://api.hutt.io/bt-to/ical</code> ein und klicken Sie auf <strong>OK</strong>.</li>
+            <li>Fügen Sie die URL <code class="ical-link">https://api.hutt.io/bt-to/ical</code> ein und klicken Sie auf <strong>OK</strong>.</li>
             <li>Outlook fragt, ob Sie diesen Kalender hinzufügen und Updates abonnieren möchten. Wählen Sie <strong>Ja</strong> aus.</li>
         </ol>
+
         <h3>Thunderbird</h3>
         <ol>
             <li>Öffnen Sie Thunderbird und wählen Sie <strong>Datei > Neu > Kalender…</strong></li>
             <li>Wählen Sie Im Netzwerk und klicken Sie auf <strong>Weiter</strong>.</li>
             <li>Wählen Sie in der „Format“-Liste den Auswahlknopf <strong>iCalendar (ICS)</strong>.</li>
-            <li>Fügen Sie den Link <code>https://api.hutt.io/bt-to/ical</code> in das Feld neben „Adresse“ ein. Klicken Sie danach auf <strong>Weiter</strong>.</li>
+            <li>Fügen Sie den Link <code class="ical-link">https://api.hutt.io/bt-to/ical</code> in das Feld neben „Adresse“ ein. Klicken Sie danach auf <strong>Weiter</strong>.</li>
             <li>Klicken Sie auf <strong>Fertigstellen</strong>.</li>
         </ol>
+
         <h3>macOS Kalender-App</h3>
         <ol>
             <li>Öffnen Sie die <strong>Kalender</strong>-App.</li>
             <li>Gehen Sie in der Menüleiste zu <strong>„Datei“ > „Neues Kalenderabonnement“</strong>.</li>
-            <li>Fügen Sie nun den Link <code>https://api.hutt.io/bt-to/ical</code> ein und klicken Sie auf <strong>„Abonnieren“</strong>.</li>
+            <li>Fügen Sie nun den Link <code class="ical-link">https://api.hutt.io/bt-to/ical</code> ein und klicken Sie auf <strong>„Abonnieren“</strong>.</li>
         </ol>
+
         <h3>iOS Kalender-App</h3>
         <ol>
             <li>Öffnen Sie die <strong>Kalender</strong>-App.</li>
             <li>Tippen Sie unten in der Mitte auf <strong>„Kalender“</strong>. Nun sollte sich eine Liste mit allen eingerichteten Kalendern öffnen.</li>
             <li>Tippen Sie nun unten links auf <strong>„Hinzufügen“ > „Kalenderabonnement hinzufügen“</strong>.</li>
-            <li>Fügen Sie nun die URL <code>https://api.hutt.io/bt-to/ical</code> ein und tippen Sie dann auf <strong>„Abonnieren“</strong>.</li>
+            <li>Fügen Sie nun die URL <code class="ical-link">https://api.hutt.io/bt-to/ical</code> ein und tippen Sie dann auf <strong>„Abonnieren“</strong>.</li>
             <li>Jetzt sollte eine Übersicht geladen werden, in der man den Kalendernamen, die Farbe und den Account auswählen kann, zu dem das Kalenderabo hinzugefügt werden soll. Bestätigen Sie mit einem letzten Tippen auf den <strong>„Hinzufügen“</strong>-Button rechts oben.</li>
         </ol>
+
     </section>
 
     <section id="vorhandene-daten">
@@ -415,6 +487,71 @@ Drucksache 20/11319, 20/11340";https://bundestag.de/dokumente/textarchiv/2024/kw
 
 <script>
     document.addEventListener("DOMContentLoaded", async function() {
+
+        // iCal-Feed-Link-Generator
+        const naCheckbox = document.getElementById("na");
+        const naAlarmCheckbox = document.getElementById("naAlarm");
+        const icalLinkField = document.getElementById("ical-link-field");
+        const icalLinkElements = document.getElementsByClassName("ical-link");
+        const copyLink = document.getElementById("copy-link");
+        const copyIcon = document.getElementById("copy-icon");
+        const copyConfirmation = document.getElementById("copy-confirmation");
+
+        function updateIcalLink() {
+            let baseUrl = "https://api.hutt.io/bt-to/ical";
+            let params = [];
+            if (naCheckbox.checked) params.push("na=true");
+            if (naCheckbox.checked && naAlarmCheckbox.checked) params.push("naAlarm=true");
+            for (const icalLinkElement of icalLinkElements) {
+                icalLinkElement.textContent = baseUrl + (params.length ? "?" + params.join("&") : "");
+            }
+        }
+
+        function updateNaAlarmCheckboxState() {
+            if (naCheckbox.checked) {
+                naAlarmCheckbox.disabled = false;
+                naAlarmCheckbox.parentElement.classList.remove("disabled");
+            } else {
+                naAlarmCheckbox.disabled = true;
+                naAlarmCheckbox.checked = false;
+                naAlarmCheckbox.parentElement.classList.add("disabled");
+            }
+        }
+
+        naCheckbox.addEventListener("change", () => {
+            updateNaAlarmCheckboxState();
+            updateIcalLink();
+        });
+
+        naAlarmCheckbox.addEventListener("change", updateIcalLink);
+
+        copyLink.addEventListener("click", () => {
+            const range = document.createRange();
+            range.selectNode(icalLinkField);
+            window.getSelection().removeAllRanges();
+            window.getSelection().addRange(range);
+
+            try {
+                document.execCommand('copy');
+                copyIcon.setAttribute('fill', '#0a4445');
+                copyConfirmation.style.display = 'inline';
+                setTimeout(() => {
+                    copyConfirmation.style.display = 'none';
+                    copyIcon.setAttribute('fill', '#888888');
+                }, 5000);
+            } catch (err) {
+                alert('Fehler beim Kopieren des Links.');
+            }
+
+            window.getSelection().removeAllRanges();
+        });
+
+        // Initiales Update des Links und des Alarm-Checkbox-Zustands
+        updateIcalLink();
+        updateNaAlarmCheckboxState();
+
+
+        // Liste mit verfügbaren Daten holen und anzeigen
         const response = await fetch("/bt-to/data-list");
         const kvData = await response.json();
         const dataListElement = document.getElementById("data-list");
