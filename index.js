@@ -212,7 +212,6 @@ async function serveDocumentation() {
         <h2>Kalenderfeed abonnieren</h2>
         <p>Um die &ndash; in Sitzungswochen alle 15min aktualisiserten &ndash; Tagesordnungen des laufenden Jahres als iCal-Feed zu abonnieren, kann folgende URL verwendet werden: <code>https://api.hutt.io/bt-to/ical</code>.</p>
         <p>Neben <strong>Startzeit, TOP und Thema</strong> enthalten die Kalendereinträge außerdem <strong>aktuelle Informationen zum Status des Tagesordnungspunktes</strong>, den etwas ausführlicheren <strong>Beschreibungstext</strong> und, falls vorhanden, einen <strong>Link zum zugehörigen Artikel</strong> im bundestag.de-Textearchiv.</p>
-        <p>Mithilfe des GET-Parameters <code>na</code> ist es außerdem möglich, <strong>eigenständige Kalendereinträge für Namentliche Abstimmungen</strong> zu erzeugen. Diese schließen zeitlich direkt an den vorangegangenen TOP an und haben eine fixe Dauer von je 15 Minuten. Dazu einfach folgende URL nutzen: <code>https://api.hutt.io/bt-to/ical?na=true</code>.</p>
         <p>Aus Performance-Gründen enthält dieses Feed <em>nicht</em> die Tagesordnungen vergangener Kalenderjahre. Sie können mit dieser API allerdings auch abgefragt oder <a href="#vorhandene-daten">händisch heruntergeladen</a> werden.</p>
         <h3>Outlook (Windows)</h3>
         <ol>
@@ -255,14 +254,17 @@ async function serveDocumentation() {
 
     <section id="api-endpoints">
         <h2>API Endpoints</h2>
-        <p>GET-Parameter, die für Abfragen genutzt werden können:</p>
+        <p>GET-Parameter, die <strong>für alle Abfragen</strong> genutzt werden können:</p>
         <ul>
             <li><code>year</code>: Das Jahr, für das die Tagesordnungen geholt werden sollen (Integer; optional).</li>
             <li><code>week</code>: Die Kalenderwoche, für die die Tagesordnungen geholt werden sollen (Integer; optional; mit <code>year</code> kombinierbar).</li>
-            <li><code>na</code>: zusätzliche Kalendereinträge für Namentliche Abstimmungen erstellen (Boolean; optional; kombinierbar; <strong>nur für iCal-Feeds</strong>).</li>
         </ul>
-        <p><strong>Sind keine Parameter angegeben, werden die Daten für das laufende Kalenderjahr zurückgegeben.</strong></p>
-        <p>Aktuell sind Abfragen auf Datensätze ab dem Jahr 2015 begrenzt.</p>
+        <p>GET-Parameter, die <strong>nur für Abfragen an den iCal-Feed</strong> genutzt werden können:</p>
+        <ul>
+            <li><code>na</code>: zusätzliche Kalendereinträge für Namentliche Abstimmungen erstellen (Boolean; optional; kombinierbar).</li>
+            <li><code>naAlarm</code>: zusätzliche Kalendereinträge für Namentliche Abstimmungen mit Alarm 15min vor Beginn versehen (Boolean; optional; kombinierbar).</li>
+        </ul>
+        <p><strong>Sind keine Parameter angegeben, werden die Daten für das laufende Kalenderjahr zurückgegeben.</strong> Aktuell sind Abfragen auf Datensätze ab dem Jahr 2015 begrenzt.</p>
 
         <h3>Beispiele</h3>
         <ul>
@@ -571,6 +573,7 @@ async function serveAgenda(format, params, request) {
     const day = params.get('day');
     const status = params.get('status');
     const includeNA = params.get('na') === 'true';
+    const naAlarm = params.get('naAlarm') === 'true';
 
     const currentWeek = getWeekNumber(new Date()); // Aktuelle Kalenderwoche
     const currentYear = new Date().getFullYear(); // Aktuelles Jahr
@@ -604,7 +607,7 @@ async function serveAgenda(format, params, request) {
     // Antwort im entsprechenden Format zurückgeben
     let response;
     if (format === "ical") {
-        response = new Response(createIcal(agendaItems, includeNA), {
+        response = new Response(createIcal(agendaItems, includeNA, naAlarm), {
             headers: { "content-type": "text/calendar; charset=utf-8" },
         });
     } else {
@@ -614,6 +617,7 @@ async function serveAgenda(format, params, request) {
     // Antwort cachen
     response.headers.append('Cache-Control', `max-age=${cacheDuration}`);
     await cache.put(cacheKey, response.clone());
+    await storeCacheKey(cacheKey, request);
     logMessage(`API-Response für ${cacheKey} gecached.`);
 
     return response;
@@ -778,23 +782,41 @@ async function fetchAndStoreAgenda(year, week, request) {
     const currentYear = currentDate.getFullYear();
     const currentWeek = getWeekNumber(currentDate);
 
-    // Check if the requested week is in the future
+    // Überprüfen, ob die angeforderte Woche in der Zukunft liegt
     if (year > currentYear || (year === currentYear && week > currentWeek)) {
         return;
     }
 
+    // Abrufen der Tagesordnung von der Website
     const html = await fetchAgenda(year, week);
     const newAgendaItems = await parseAgenda(html);
     const existingAgendaItems = await data.get(`agenda-${year}-${week}`, { type: "json" });
 
+    // Speichern der neuen Tagesordnung in der Key-Value-Datenbank
     await data.put(`agenda-${year}-${week}`, JSON.stringify(newAgendaItems));
     logMessage(`Tagesordnungen für KW ${week}/${year} in Key Value Datenbank gespeichert.`);
 
-    // Invalidate the cache for /bt-to/data-list if new data is added, except for the current week
+    // Cache invalidieren, wenn neue Daten hinzugefügt werden
     if (JSON.stringify(newAgendaItems) !== JSON.stringify(existingAgendaItems) && !(year === currentYear && week === currentWeek)) {
         await invalidateCache(year, week, request);
         logMessage(`Tagesordnungen für KW ${week}/${year} aus dem Cache gelöscht.`);
     }
+
+    // Cache-Key speichern
+    const baseUrl = getBaseUrl(request);
+    const formats = ["ical", "json", "xml", "csv"];
+    const cache = caches.default;
+    let cachedKeys = await cache.match(`${baseUrl}cached`);
+    cachedKeys = cachedKeys ? await cachedKeys.json() : [];
+    formats.forEach(format => {
+        const cacheKey = `${baseUrl}${format}?year=${year}&week=${week}`;
+        if (!cachedKeys.includes(cacheKey)) {
+            cachedKeys.push(cacheKey);
+        }
+    });
+
+    // Aktualisierte Liste der Cache-Keys im Cache speichern
+    await cache.put(`${baseUrl}cached`, new Response(JSON.stringify(cachedKeys)));
 }
 
 // Abrufen der Tagesordnung von der Bundestags-Website
@@ -906,7 +928,7 @@ function foldLine(line) {
     return result;
 }
 
-function createIcal(agendaItems, includeNA = false) {
+function createIcal(agendaItems, includeNA = false, naAlarm = false) {
     const cal = [
         'BEGIN:VCALENDAR',
         'VERSION:2.0',
@@ -964,7 +986,7 @@ function createIcal(agendaItems, includeNA = false) {
         }
         cal.push('END:VEVENT');
 
-        // Ggfs. Kalendereintrag für Namentliche Abstimmung erstellen
+        // Kalendereintrag für Namentliche Abstimmung erstellen, wenn na = true
         if (includeNA && item.namentliche_abstimmung) {
             const naStart = new Date(item.end);
             const naEnd = new Date(naStart.getTime() + 15 * 60 * 1000); // 15 Minuten später
@@ -975,9 +997,20 @@ function createIcal(agendaItems, includeNA = false) {
             cal.push(foldLine(`DTSTART;TZID=Europe/Berlin:${formatDate(naStart.toISOString())}`));
             cal.push(foldLine(`DTEND;TZID=Europe/Berlin:${formatDate(naEnd.toISOString())}`));
             cal.push(foldLine(`SUMMARY:Namentliche Abstimmung: ${item.thema}`));
-            cal.push(foldLine(`DESCRIPTION:Namentliche Abstimmung zu ${item.top ? `${item.top}: ${item.thema}` : item.thema}.`));
+            cal.push(foldLine(`DESCRIPTION:Namentliche Abstimmung zu ${item.top ? `${item.top}: ${item.thema}` : item.thema}.\\n\\n${item.beschreibung.replace(/\n/g, '\\n')}`));
             if (item.url) {
                 cal.push(foldLine(`URL:${item.url}`));
+            }
+            // Alarm erstellen, wenn naAlarm = true
+            if (naAlarm) {
+                cal.push('BEGIN:VALARM');
+                cal.push(foldLine(`TRIGGER:-PT15M`)); // 15 Minuten vor Beginn
+                cal.push(foldLine(`ACTION:DISPLAY`));
+                cal.push(foldLine(`DESCRIPTION:Erinnerung: Namentliche Abstimmung ${item.top ? `${item.top}: ${item.thema}` : item.thema}`));
+                cal.push(foldLine(`X-WR-ALARMUID:${generateUID(naStart, `Erinnerung: Namentliche Abstimmung ${item.top ? `${item.top}: ${item.thema}` : item.thema}`, '')}`));
+                cal.push(foldLine(`UID:${generateUID(naStart, `Erinnerung: Namentliche Abstimmung ${item.top ? `${item.top}: ${item.thema}` : item.thema}`, '')}`));
+                cal.push(foldLine(`X-APPLE-DEFAULT-ALARM:TRUE`));
+                cal.push('END:VALARM');
             }
             cal.push('END:VEVENT');
         }
@@ -1120,37 +1153,54 @@ function getBaseUrl(request) {
     }
 }
 
+// Cache Keys ebenfalls im Cache speichern
+async function storeCacheKey(cacheKey, request) {
+    const baseUrl = getBaseUrl(request);
+    const cache = caches.default;
+    const cacheListKey = `${baseUrl}cached`;
+    let cachedKeysResponse = await cache.match(cacheListKey);
+    let cachedKeys = cachedKeysResponse ? await cachedKeysResponse.json() : [];
+    
+    if (!cachedKeys.includes(cacheKey)) {
+        cachedKeys.push(cacheKey);
+    }
+
+    const updatedResponse = new Response(JSON.stringify(cachedKeys), {
+        headers: { 'Content-Type': 'application/json' }
+    });
+    await cache.put(cacheListKey, updatedResponse);
+}
+
 // Cache-Invalidierungsfunktion
 async function invalidateCache(year, week, request) {
     const cache = caches.default;
     const baseUrl = getBaseUrl(request);
-    const formats = ["ical", "json", "xml", "csv"];
-    const keys = [];
 
-    if (year && week) {
-        keys.push(...formats.map(format => new Request(`${baseUrl}${format}?year=${year}&week=${week}`)));
-        keys.push(...formats.map(format => new Request(`${baseUrl}${format}?week=${week}&year=${year}`)));
-        keys.push(...formats.map(format => new Request(`${baseUrl}${format}?week=${week}&year=${year}&na=true`)));
-        keys.push(...formats.map(format => new Request(`${baseUrl}${format}?week=${week}&na=true&year=${year}`)));
-        keys.push(...formats.map(format => new Request(`${baseUrl}${format}?na=true&week=${week}&year=${year}`)));
-    } else if (year) {
-        keys.push(...formats.map(format => new Request(`${baseUrl}${format}?year=${year}`)));
-        keys.push(...formats.map(format => new Request(`${baseUrl}${format}?year=${year}&na=true`)));
-        keys.push(...formats.map(format => new Request(`${baseUrl}${format}?na=true&year=${year}`)));
-    } else if (week) {
-        keys.push(...formats.map(format => new Request(`${baseUrl}${format}?week=${week}`)));
-        keys.push(...formats.map(format => new Request(`${baseUrl}${format}?week=${week}&na=true`)));
-        keys.push(...formats.map(format => new Request(`${baseUrl}${format}?na=true&week=${week}`)));
-    } else {
-        keys.push(...formats.map(format => new Request(`${baseUrl}${format}`)));
-        keys.push(...formats.map(format => new Request(`${baseUrl}${format}?na=true`)));
+    // Abrufen der gespeicherten Cache-Keys
+    let cachedKeys = await cache.match(`${baseUrl}cached`);
+    cachedKeys = cachedKeys ? await cachedKeys.json() : [];
+
+    // Filtern der zu löschenden Cache-Keys basierend auf Jahr und Woche
+    const keysToDelete = cachedKeys.filter(key => {
+        const url = new URL(key);
+        const params = url.searchParams;
+        const keyYear = params.get('year');
+        const keyWeek = params.get('week');
+        return (!year || keyYear == year) && (!week || keyWeek == week);
+    });
+
+    // Löschen der gefilterten Cache-Keys
+    for (const key of keysToDelete) {
+        await cache.delete(new Request(key));
     }
 
-    for (const key of keys) {
-        await cache.delete(key);
-    }
+    // Entfernen der gelöschten Cache-Keys aus der gespeicherten Liste
+    const updatedKeys = cachedKeys.filter(key => !keysToDelete.includes(key));
 
-    // Invalidate the cache for /bt-to/data-list, except for the current week
+    // Aktualisierte Liste der Cache-Keys im Cache speichern
+    await cache.put(`${baseUrl}cached`, new Response(JSON.stringify(updatedKeys)));
+
+    // Optional: Cache für /bt-to/data-list invalidieren, außer für die aktuelle Woche
     const currentYear = new Date().getFullYear();
     const currentWeek = getWeekNumber(new Date());
     if (!(year == currentYear && week == currentWeek)) {
@@ -1181,38 +1231,16 @@ async function handlePurgeRequest(request) {
 async function purgeCacheFunction() {
     const cache = caches.default;
     const baseUrl = "https://api.hutt.io/bt-to/";
-    const formats = ["ical", "json", "xml", "csv"];
+    const cacheListKey = `${baseUrl}cached`;
+    let cachedKeysResponse = await cache.match(cacheListKey);
+    let cachedKeys = cachedKeysResponse ? await cachedKeysResponse.json() : [];
 
-    let keys = [];
-
-    // Alle Jahre aus dem KV Storage abrufen
-    const kvData = await fetchDataListFromKV(); // Holen der Daten aus KV Storage
-
-    // Cache-Keys für alle Jahre und Wochen generieren
-    Object.keys(kvData).forEach(year => {
-        kvData[year].forEach(week => {
-            formats.forEach(format => {
-                keys.push(`${baseUrl}${format}?year=${year}`);
-                keys.push(`${baseUrl}${format}?year=${year}&week=${week}`);
-                keys.push(`${baseUrl}${format}?week=${week}&year=${year}`);
-                keys.push(`${baseUrl}${format}?year=${year}&week=${week}&na=true`);
-                keys.push(`${baseUrl}${format}?week=${week}&year=${year}&na=true`);
-                keys.push(`${baseUrl}${format}?week=${week}&na=true&year=${year}`);
-                keys.push(`${baseUrl}${format}?na=true&week=${week}&year=${year}`);
-                keys.push(`${baseUrl}${format}?na=true&year=${year}&week=${week}`);
-            });
-        });
-    });
-
-    // Hinzufügen des data-list Endpunkts
-    keys.push(`${baseUrl}data-list`);
-
-    // Löschen der Cache-Keys
-    let deletePromises = keys.map(key => cache.delete(new Request(key)));
+    let deletePromises = cachedKeys.map(key => cache.delete(key));
     await Promise.all(deletePromises);
+    await cache.delete(new Request(cacheListKey));
+    
     return "Known Cache entries cleared successfully.";
 }
-
 
 // KV leeren
 async function purgeKVFunction() {
