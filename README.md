@@ -42,7 +42,7 @@ The German Bundestag makes its agenda available online - but unfortunately not i
 
 3. **Agenda Fetching**:
    - Fetches the agenda from the Bundestag website for the specified year and week.
-   - Parses the HTML response using `cheerio` to extract relevant data.
+   - Parses the JSON response to extract relevant data.
    - Stores the parsed agenda items in a KV database.
 
 4. **Data Storage and Retrieval**:
@@ -113,10 +113,6 @@ The German Bundestag makes its agenda available online - but unfortunately not i
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE.md) file for details.
-
-## Acknowledgements
-
-- This project uses the [cheerio](https://github.com/cheeriojs/cheerio) library for HTML parsing.
 
 ## Buy Me A Coffee!
 

@@ -7,7 +7,6 @@
    *
 */
 
-import cheerio from "cheerio";
 
 // Variablen
 const cacheApiRequests = API_CACHE_TTL || 60 * 60; // Default: API Requests für 1 Stunde cachen
@@ -774,8 +773,8 @@ async function serveAgenda(format, params, request) {
 async function updateAgenda() {
     const year = new Date().getFullYear();
     const week = getWeekNumber(new Date());
-    const html = await fetchAgenda(year, week);
-    const newAgendaItems = await parseAgenda(html);
+    const json = await fetchAgenda(year, week);
+    const newAgendaItems = parseAgenda(json);
 
     // Bereits existierende TO aus KV Storage holen
     const currentItemsRaw = await data.get(`agenda-${year}-${week}`, { type: "json" });
@@ -935,8 +934,8 @@ async function fetchAndStoreAgenda(year, week, request) {
     }
 
     // Abrufen der Tagesordnung von der Website
-    const html = await fetchAgenda(year, week);
-    const newAgendaItems = await parseAgenda(html);
+    const json = await fetchAgenda(year, week);
+    const newAgendaItems = parseAgenda(json);
     const existingAgendaItems = await data.get(`agenda-${year}-${week}`, { type: "json" });
 
     // Speichern der neuen Tagesordnung in der Key-Value-Datenbank
@@ -969,67 +968,73 @@ async function fetchAndStoreAgenda(year, week, request) {
 // Abrufen der Tagesordnung von der Bundestags-Website
 async function fetchAgenda(year, week) {
     const response = await fetch(
-        `https://www.bundestag.de/apps/plenar/plenar/conferenceweekDetail.form?year=${year}&week=${week}`,
+        `https://www.bundestag.de/apps/plenar/plenar/conferenceWeekJSON?year=${year}&week=${week}`,
     );
     if (!response.ok) {
         throw new Error("Failed to fetch agenda");
     }
-    return await response.text();
+    return await response.json();
 }
 
-// Tagesordnung von HTML zu JSON parsen
-async function parseAgenda(html) {
-    const $ = cheerio.load(html);
-    const tables = $("table.bt-table-data");
+// Tagesordnung von JSON parsen (conferenceWeekJSON-Endpoint)
+function parseAgenda(json) {
     const agendaItems = [];
     const months = {
         Januar: 0, Februar: 1, März: 2, April: 3, Mai: 4, Juni: 5,
         Juli: 6, August: 7, September: 8, Oktober: 9, November: 10, Dezember: 11
     };
+    const conferences = json.conferences || [];
 
-    tables.each((_, table) => {
-        const dateStr = $(table).find("div.bt-conference-title").text().split("(")[0].trim();
-        const [day, monthName, year] = dateStr.split(" ");
+    for (const conference of conferences) {
+        // Datum aus "15. Mai 2024"-Format parsen
+        const dateStr = conference.conferenceDate.date;
+        const [dayStr, monthName, yearStr] = dateStr.split(/\.\s*|\s+/).filter(Boolean);
         const month = months[monthName];
-        const date = new Date(year, month, parseInt(day, 10));
+        const date = new Date(parseInt(yearStr, 10), month, parseInt(dayStr, 10));
 
-        const rows = $(table).find("tbody > tr");
-        for (let i = 1; i < rows.length - 1; i++) {
-            const startRow = rows[i];
-            const endRow = rows[i + 1];
+        const rows = conference.rows || [];
 
-            const startTimeStr = $(startRow).find('td[data-th="Uhrzeit"]').text().trim();
-            const endTimeStr = $(endRow).find('td[data-th="Uhrzeit"]').text().trim();
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const nextRow = rows[i + 1];
 
-            const [startHour, startMinute] = startTimeStr.split(":").map(Number);
-            const [endHour, endMinute] = endTimeStr.split(":").map(Number);
-
+            // Startzeit parsen
+            const [startHour, startMinute] = row.time.split(":").map(Number);
             const startDateTime = new Date(date);
-            startDateTime.setHours(startHour, startMinute);
+            startDateTime.setHours(startHour, startMinute, 0, 0);
 
-            let endDateTime = new Date(date);
-            endDateTime.setHours(endHour, endMinute);
+            // Endzeit von der nächsten Zeile ableiten (oder +15min für letzte Zeile)
+            let endDateTime;
+            if (nextRow) {
+                const [endHour, endMinute] = nextRow.time.split(":").map(Number);
+                endDateTime = new Date(date);
+                endDateTime.setHours(endHour, endMinute, 0, 0);
+            } else {
+                endDateTime = new Date(startDateTime.getTime() + (15 * 60000));
+            }
 
-            let top = $(startRow).find('td[data-th="TOP"]').text().trim();
-            const thema = $(startRow).find('td[data-th="Thema"] a.bt-top-collapser').text().trim();
-            const beschreibungElem = $(startRow).find('td[data-th="Thema"] p');
-            const beschreibung = beschreibungElem.length > 0 ? beschreibungElem.html().replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "").trim() : "";
-            const urlElem = $(startRow).find('td[data-th="Thema"] div div div button');
-            const url = urlElem.length > 0 ? `https://bundestag.de${urlElem.attr("data-url")}` : "";
-            const statusElem = $(startRow).find('td[data-th="Status/ Abstimmung"] p');
-            const status = statusElem.length > 0 ? statusElem.html().replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "").trim() : "";
-            const namentlicheAbstimmung = beschreibung.endsWith("Namentliche Abstimmung");
-
-            // Prüfen, ob "TOP" vor der Zahl steht, wenn nicht, hinzufügen
+            // TOP normalisieren: nackte Zahlen mit "TOP " prefixen
+            let top = (row.top || "").trim();
             top = top.split(',').map(part => {
                 part = part.trim();
                 return /^\d+$/.test(part) ? `TOP ${part}` : part;
             }).join(', ');
 
+            const thema = (row.topic.title || "").trim();
+            const beschreibungRaw = stripHtml(row.topic.detail);
+            const url = row.topic.link ? `https://www.bundestag.de${row.topic.link}` : "";
+
+            // Status: Titel + Detail (HTML bereinigt)
+            const statusTitle = (row.status.title || "").trim();
+            const statusDetail = stripHtml(row.status.detail);
+            const status = statusDetail ? `${statusTitle}\n${statusDetail}` : statusTitle;
+
+            const namentlicheAbstimmung = beschreibungRaw.trimEnd().endsWith("Namentliche Abstimmung");
+
             // Wenn mehrere Tagesordnungspunkte parallel laufen, für jeden eine Dauer von 15 Minuten festlegen
             const timeDifference = differenceInMinutes(startDateTime, endDateTime);
             if (timeDifference === 0) {
-                endDateTime = new Date(endDateTime.getTime() + (15 * 60000)); // 15min addieren
+                endDateTime = new Date(endDateTime.getTime() + (15 * 60000));
                 logMessage(`${top} "${thema}" verläuft parallel mit einem anderen – Dauer von 0 auf 15min erhöht.`);
             }
 
@@ -1039,7 +1044,7 @@ async function parseAgenda(html) {
                 logMessage(`${top} "${thema}" endet erst am nächsten Tag – Enddatum auf nächsten Tag gesetzt.`);
             }
 
-            const eventDescription = status ? `Status: ${status}\n\n${beschreibung}` : beschreibung;
+            const eventDescription = status ? `Status: ${status}\n\n${beschreibungRaw}` : beschreibungRaw;
 
             const agendaItem = {
                 start: startDateTime.toISOString().replace(/Z/g, ''),
@@ -1056,9 +1061,15 @@ async function parseAgenda(html) {
             agendaItems.push(agendaItem);
             logMessage(`${top} "${thema}" erfolgreich geparst.`);
         }
-    });
+    }
 
     return agendaItems;
+}
+
+// HTML-Tags aus Strings entfernen
+function stripHtml(html) {
+    if (!html) return "";
+    return html.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "").trim();
 }
 
 // Hilfsfunktionen

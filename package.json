@@ -16,8 +16,5 @@
     "webpack": "^5.24.2",
     "webpack-cli": "^4.5.0"
   },
-  "keywords": [],
-  "dependencies": {
-    "cheerio": "^1.0.0-rc.12"
-  }
+  "keywords": []
 }
